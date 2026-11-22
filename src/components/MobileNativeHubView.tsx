@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   Check,
   Copy,
@@ -8,14 +8,10 @@ import {
   LogOut,
   Monitor,
   Moon,
-  Plus,
   RefreshCw,
   Smartphone,
   Sun,
-  Trash2,
-  Upload,
 } from 'lucide-react';
-import {uploadImageToFirebaseStorage} from '../services/yabiDb';
 import type {
   Customer,
   EmpresaConfig,
@@ -24,9 +20,9 @@ import type {
   Sale,
   StoreBanner,
   Supplier,
+  SupportTicket,
   UserProfile,
 } from '../types/yabi';
-import {genId} from '../utils/format';
 
 interface MobileNativeHubViewProps {
   darkMode: boolean;
@@ -41,13 +37,12 @@ interface MobileNativeHubViewProps {
   sales: Sale[];
   banners: StoreBanner[];
   employees: UserProfile[];
+  tickets: SupportTicket[];
   isInstallable: boolean;
   isInstalled: boolean;
   isIOS: boolean;
   onInstallPWA: () => Promise<boolean>;
   onSaveEmpresa: (empresa: EmpresaConfig) => Promise<void>;
-  onSaveBanner: (banner: StoreBanner) => Promise<void>;
-  onDeleteBanner: (bannerId: string) => Promise<void>;
   onOpenAuth: () => void;
   onLogout: () => Promise<void>;
   onResetDemo: () => void;
@@ -95,13 +90,12 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   sales,
   banners,
   employees,
+  tickets,
   isInstallable,
   isInstalled,
   isIOS,
   onInstallPWA,
   onSaveEmpresa,
-  onSaveBanner,
-  onDeleteBanner,
   onOpenAuth,
   onLogout,
   onResetDemo,
@@ -111,10 +105,9 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   const [empForm, setEmpForm] = useState<EmpresaConfig>(empresa);
   const [savingEmp, setSavingEmp] = useState(false);
 
-  const [bannerTitulo, setBannerTitulo] = useState('');
-  const [bannerSub, setBannerSub] = useState('');
-  const [bannerImg, setBannerImg] = useState('');
-  const [uploadingBanner, setUploadingBanner] = useState(false);
+  useEffect(() => {
+    setEmpForm(empresa);
+  }, [empresa]);
 
   const handleCopy = async (id: string, text: string) => {
     try {
@@ -137,43 +130,6 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
     }
   };
 
-  const handleBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingBanner(true);
-    try {
-      if (dataSource === 'firebase') {
-        const url = await uploadImageToFirebaseStorage(empresa.id, 'banners', file);
-        setBannerImg(url);
-        onNotify('Imagen de banner subida a Firebase Storage', 'success');
-      } else {
-        const reader = new FileReader();
-        reader.onload = () => setBannerImg(String(reader.result || ''));
-        reader.readAsDataURL(file);
-      }
-    } catch {
-      onNotify('No se pudo subir el banner a Firebase Storage', 'error');
-    } finally {
-      setUploadingBanner(false);
-    }
-  };
-
-  const handleCreateBanner = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bannerTitulo.trim()) return;
-    await onSaveBanner({
-      id: genId('B'),
-      titulo: bannerTitulo.trim(),
-      subtitulo: bannerSub.trim() || 'Promoción activa en tienda online',
-      img: bannerImg || '/src/assets/images/product_running_sneakers_1795380206507.jpg',
-      cta: 'Explorar',
-      estado: 'Activo',
-    });
-    setBannerTitulo('');
-    setBannerSub('');
-    setBannerImg('');
-  };
-
   const handleExportMigrationBundle = () => {
     const payload = {
       exportedAt: new Date().toISOString(),
@@ -187,6 +143,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
         ventas: sales,
         banners,
         usuarios: employees,
+        soporte: tickets,
       },
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -206,7 +163,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-5xl">
       {/* Account & Firebase Sync */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
             Proyecto: yabi-store · Empresa: {empresa.id} · Estado:{' '}
@@ -227,7 +184,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              className="min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+              className="min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#0E1A2E] flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
               Cerrar sesión
@@ -237,7 +194,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               <button
                 type="button"
                 onClick={onResetDemo}
-                className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
+                className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#0E1A2E] flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
                 Reiniciar demo
@@ -245,7 +202,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               <button
                 type="button"
                 onClick={onOpenAuth}
-                className="min-h-[44px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold flex items-center gap-2"
+                className="min-h-[44px] px-4 rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold flex items-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
                 Conectar cuenta
@@ -256,9 +213,9 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       </div>
 
       {/* Supabase / Render Full Migration Backup */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center shrink-0">
             <Database className="w-5 h-5" />
           </div>
           <div>
@@ -266,7 +223,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Exportación completa para migración (Supabase / Render)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Descarga en un solo archivo JSON todas las colecciones actuales ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores y {employees.length} usuarios).
+              Descarga en un solo archivo JSON todas las colecciones actuales ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores, {tickets.length} tickets y {employees.length} usuarios).
             </p>
           </div>
         </div>
@@ -283,17 +240,15 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       {/* Company Settings */}
       <form
         onSubmit={handleSaveEmpresa}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4"
+        className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4"
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-              Datos fiscales y configuración de empresa
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Se imprime en los recibos POS y se sincroniza en <span className="font-mono">empresas/{empresa.id}</span>.
-            </p>
-          </div>
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            Datos fiscales y configuración de empresa
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Se imprime en los recibos POS y se sincroniza en <span className="font-mono">empresas/{empresa.id}</span>.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -304,7 +259,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.nombre}
               onChange={(e) => setEmpForm({...empForm, nombre: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -314,7 +269,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.nit || ''}
               onChange={(e) => setEmpForm({...empForm, nit: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -324,7 +279,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.ciudad || ''}
               onChange={(e) => setEmpForm({...empForm, ciudad: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -334,7 +289,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.telefono || ''}
               onChange={(e) => setEmpForm({...empForm, telefono: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -347,14 +302,14 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               max={30}
               value={empForm.iva ?? 19}
               onChange={(e) => setEmpForm({...empForm, iva: Number(e.target.value)})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div className="flex items-end">
             <button
               type="submit"
               disabled={savingEmp}
-              className="w-full min-h-[44px] rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold"
+              className="w-full min-h-[44px] rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold"
             >
               {savingEmp ? 'Guardando…' : 'Guardar configuración'}
             </button>
@@ -362,81 +317,9 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
         </div>
       </form>
 
-      {/* Storefront Banners + Firebase Storage */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-            Banners de Tienda Online (Firebase Storage)
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Administra los anuncios destacados de <span className="font-mono">empresas/{empresa.id}/banners</span>.
-          </p>
-        </div>
-
-        <form onSubmit={handleCreateBanner} className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-          <input
-            required
-            value={bannerTitulo}
-            onChange={(e) => setBannerTitulo(e.target.value)}
-            placeholder="Título del banner"
-            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white"
-          />
-          <input
-            value={bannerSub}
-            onChange={(e) => setBannerSub(e.target.value)}
-            placeholder="Subtítulo o promoción"
-            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white"
-          />
-          <label className="min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center justify-center gap-2 cursor-pointer">
-            <Upload className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-            <span>{uploadingBanner ? 'Subiendo…' : bannerImg ? 'Imagen lista' : 'Subir imagen'}</span>
-            <input type="file" accept="image/*" onChange={handleBannerFile} className="hidden" />
-          </label>
-          <button
-            type="submit"
-            disabled={uploadingBanner}
-            className="min-h-[44px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold flex items-center justify-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            Publicar banner
-          </button>
-        </form>
-
-        {banners.length > 0 && (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 border-t border-slate-100 dark:border-slate-800">
-            {banners.map((b) => (
-              <div key={b.id} className="py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    src={b.img}
-                    alt={b.titulo}
-                    referrerPolicy="no-referrer"
-                    className="w-16 h-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                      {b.titulo}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">{b.subtitulo}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onDeleteBanner(b.id)}
-                  className="min-h-[40px] min-w-[40px] rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500"
-                  aria-label="Eliminar banner"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* Appearance & PWA Install Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
+        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Tema de interfaz (PC y Móvil)
@@ -448,14 +331,14 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
           <button
             type="button"
             onClick={onToggleDarkMode}
-            className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm font-medium text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2.5"
+            className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm font-medium text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2.5"
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-sky-600" />}
             {darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           </button>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
+        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Instalación directa (PWA Móvil y PC)
@@ -472,14 +355,14 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <button
               type="button"
               onClick={onInstallPWA}
-              className="min-h-[46px] px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold flex items-center justify-center gap-2"
+              className="min-h-[46px] px-4 rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" />
               Instalar App en este dispositivo
             </button>
           ) : (
-            <div className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2">
-              <Monitor className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <div className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-xs text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2">
+              <Monitor className="w-4 h-4 text-[#00C8FF]" />
               <span>
                 {isInstalled ? 'Ejecutando como App instalada' : 'Usa el menú del navegador → Instalar aplicación'}
               </span>
@@ -489,9 +372,9 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       </div>
 
       {/* React Native Expo Companion Project */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-4">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#00C8FF]/10 text-[#00C8FF] flex items-center justify-center shrink-0">
             <Smartphone className="w-5 h-5" />
           </div>
           <div>
@@ -508,9 +391,9 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
           {RN_SNIPPETS.map((snippet) => (
             <div
               key={snippet.id}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden"
+              className="rounded-xl border border-slate-200 dark:border-[#0D1E35] overflow-hidden"
             >
-              <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+              <div className="px-4 py-2.5 bg-slate-50 dark:bg-[#070E1A] border-b border-slate-200 dark:border-[#0D1E35] flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                     {snippet.title}
@@ -520,7 +403,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleCopy(snippet.id, snippet.code)}
-                  className="min-h-[34px] px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shrink-0"
+                  className="min-h-[34px] px-3 rounded-lg border border-slate-200 dark:border-[#0D1E35] text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shrink-0"
                 >
                   {copiedId === snippet.id ? (
                     <>
@@ -535,7 +418,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                   )}
                 </button>
               </div>
-              <pre className="p-3.5 text-[11px] font-mono text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 overflow-x-auto leading-relaxed">
+              <pre className="p-3.5 text-[11px] font-mono text-slate-700 dark:text-slate-300 bg-white dark:bg-[#0B1525] overflow-x-auto leading-relaxed">
                 <code>{snippet.code}</code>
               </pre>
             </div>

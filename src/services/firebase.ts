@@ -1,12 +1,6 @@
 import {initializeApp, getApps, getApp} from 'firebase/app';
 import {getAuth} from 'firebase/auth';
-import {
-  getFirestore,
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  type Firestore,
-} from 'firebase/firestore';
+import {getFirestore} from 'firebase/firestore';
 import {getFunctions} from 'firebase/functions';
 import {getStorage} from 'firebase/storage';
 
@@ -24,18 +18,7 @@ export const yabiFirebaseConfig = {
 
 const app = getApps().length > 0 ? getApp() : initializeApp(yabiFirebaseConfig);
 
-let firestoreDb: Firestore;
-try {
-  firestoreDb = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-} catch {
-  firestoreDb = getFirestore(app);
-}
-
-export const db = firestoreDb;
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const functions = getFunctions(app);
 export const storage = getStorage(app);

@@ -1,9 +1,10 @@
-import React, {useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {Plus, Search, X} from 'lucide-react';
 import type {Customer, Supplier} from '../types/yabi';
 import {formatCOP, genId} from '../utils/format';
 
 interface CustomersViewProps {
+  defaultSegment?: 'customers' | 'suppliers';
   customers: Customer[];
   suppliers: Supplier[];
   onSaveCustomer: (customer: Customer) => Promise<void>;
@@ -11,12 +12,17 @@ interface CustomersViewProps {
 }
 
 export const CustomersView: React.FC<CustomersViewProps> = ({
+  defaultSegment = 'customers',
   customers,
   suppliers,
   onSaveCustomer,
   onSaveSupplier,
 }) => {
-  const [segment, setSegment] = useState<'customers' | 'suppliers'>('customers');
+  const [segment, setSegment] = useState<'customers' | 'suppliers'>(defaultSegment);
+
+  useEffect(() => {
+    setSegment(defaultSegment);
+  }, [defaultSegment]);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
 

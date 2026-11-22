@@ -1,12 +1,18 @@
 export type AppTab =
-  | 'pos'
-  | 'inventory'
-  | 'purchases'
-  | 'storefront'
-  | 'customers'
+  | 'dashboard'
   | 'team'
+  | 'customers'
+  | 'inventory'
+  | 'suppliers'
+  | 'banners'
+  | 'sales'
+  | 'purchases'
+  | 'pos'
   | 'reports'
-  | 'mobile_config';
+  | 'subscription'
+  | 'config'
+  | 'support'
+  | 'storefront';
 
 export type PaymentMethod = 'Efectivo' | 'Nequi' | 'Tarjeta' | 'Wompi' | 'PSE';
 
@@ -97,11 +103,33 @@ export interface Sale {
   pago: PaymentMethod;
   fecha: string;
   hora?: string;
-  estado: 'Pagada' | 'Pendiente';
+  estado: 'Pagada' | 'Pendiente' | 'Cancelada';
+  transportadora?: string;
+  guia?: string;
   vendedor?: string;
   notas?: string;
   origen?: 'POS' | 'Tienda Online';
   pendingSync?: boolean;
+}
+
+export interface SupportTicket {
+  id: string;
+  empresaId: string;
+  asunto: string;
+  mensaje: string;
+  prioridad: 'Alta' | 'Media' | 'Baja';
+  estado: 'Abierto' | 'En Proceso' | 'Resuelto' | 'Cerrado';
+  fecha: string;
+  creadoPor?: string;
+  respuesta?: string;
+}
+
+export interface EmailLog {
+  id: string;
+  para: string;
+  asunto: string;
+  tipo: 'Recibo' | 'Alerta' | 'Soporte';
+  fecha: string;
 }
 
 export interface CartItem {
@@ -125,6 +153,7 @@ export interface EmpresaConfig {
   ciudad?: string;
   telefono?: string;
   iva?: number;
+  plan?: 'Básico' | 'Plata' | 'Pro' | 'Oro';
   color?: string;
   activa?: boolean;
 }

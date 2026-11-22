@@ -22,23 +22,27 @@ import {getDownloadURL, ref, uploadBytesResumable} from 'firebase/storage';
 import {auth, db, functions, storage} from './firebase';
 import type {
   Customer,
+  EmailLog,
   EmpresaConfig,
   Product,
   Purchase,
   Sale,
   StoreBanner,
   Supplier,
+  SupportTicket,
   UserProfile,
 } from '../types/yabi';
 import {
   DEMO_BANNERS,
   DEMO_CUSTOMERS,
+  DEMO_EMAIL_LOGS,
   DEMO_EMPLOYEES,
   DEMO_EMPRESA,
   DEMO_PRODUCTS,
   DEMO_PURCHASES,
   DEMO_SALES,
   DEMO_SUPPLIERS,
+  DEMO_TICKETS,
 } from '../data/demoSeed';
 
 const LOCAL_KEYS = {
@@ -49,6 +53,8 @@ const LOCAL_KEYS = {
   banners: 'yabi_v2_banners',
   employees: 'yabi_v2_employees',
   sales: 'yabi_v2_sales',
+  tickets: 'yabi_v2_tickets',
+  emails: 'yabi_v2_emails',
   wishlist: 'yabi_v2_wishlist',
   empresa: 'yabi_v2_empresa',
 };
@@ -108,6 +114,7 @@ export interface LiveSyncCallbacks {
   onBanners: (banners: StoreBanner[]) => void;
   onSales: (sales: Sale[]) => void;
   onEmployees: (employees: UserProfile[]) => void;
+  onTickets: (tickets: SupportTicket[]) => void;
   onSyncStatus: (connected: boolean) => void;
 }
 
@@ -202,6 +209,43 @@ export function subscribeEmpresaRealtime(
     )
   );
 
+  const ticketsQ = isSuperAdmin
+    ? collection(db, 'soporte')
+    : query(collection(db, 'soporte'), where('empresaId', '==', empresaId));
+
+  unsubs.push(
+    onSnapshot(
+      ticketsQ,
+      (snap) => {
+        const list = snap.docs.map((d) => {
+          const raw = d.data() as Record<string, unknown>;
+          const fechaObj = raw.fecha as {seconds?: number} | string | undefined;
+          const fechaStr =
+            typeof fechaObj === 'string'
+              ? fechaObj
+              : fechaObj && typeof fechaObj === 'object' && typeof fechaObj.seconds === 'number'
+              ? new Date(fechaObj.seconds * 1000).toISOString().slice(0, 10)
+              : new Date().toISOString().slice(0, 10);
+          return {
+            id: d.id,
+            empresaId: String(raw.empresaId || empresaId),
+            asunto: String(raw.asunto || 'Soporte'),
+            mensaje: String(raw.mensaje || ''),
+            prioridad: (raw.prioridad as SupportTicket['prioridad']) || 'Media',
+            estado: (raw.estado as SupportTicket['estado']) || 'Abierto',
+            fecha: fechaStr,
+            creadoPor: raw.creadoPor ? String(raw.creadoPor) : undefined,
+            respuesta: raw.respuesta ? String(raw.respuesta) : undefined,
+          };
+        });
+        callbacks.onTickets(list);
+      },
+      () => {
+        // ignore if restricted
+      }
+    )
+  );
+
   const usersQ = isSuperAdmin
     ? collection(db, 'usuarios')
     : query(collection(db, 'usuarios'), where('empresaId', '==', empresaId));
@@ -242,6 +286,10 @@ export const localStore = {
   saveEmployees: (data: UserProfile[]) => writeLocal(LOCAL_KEYS.employees, data),
   getSales: () => readLocal<Sale[]>(LOCAL_KEYS.sales, DEMO_SALES),
   saveSales: (data: Sale[]) => writeLocal(LOCAL_KEYS.sales, data),
+  getTickets: () => readLocal<SupportTicket[]>(LOCAL_KEYS.tickets, DEMO_TICKETS),
+  saveTickets: (data: SupportTicket[]) => writeLocal(LOCAL_KEYS.tickets, data),
+  getEmails: () => readLocal<EmailLog[]>(LOCAL_KEYS.emails, DEMO_EMAIL_LOGS),
+  saveEmails: (data: EmailLog[]) => writeLocal(LOCAL_KEYS.emails, data),
   getWishlist: () => readLocal<string[]>(LOCAL_KEYS.wishlist, ['P001', 'P003']),
   saveWishlist: (data: string[]) => writeLocal(LOCAL_KEYS.wishlist, data),
   resetDemo: () => {
@@ -253,8 +301,18 @@ export const localStore = {
     writeLocal(LOCAL_KEYS.banners, DEMO_BANNERS);
     writeLocal(LOCAL_KEYS.employees, DEMO_EMPLOYEES);
     writeLocal(LOCAL_KEYS.sales, DEMO_SALES);
+    writeLocal(LOCAL_KEYS.tickets, DEMO_TICKETS);
+    writeLocal(LOCAL_KEYS.emails, DEMO_EMAIL_LOGS);
   },
 };
+
+export async function saveSaleCloud(empresaId: string, sale: Sale): Promise<void> {
+  await setDoc(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale, {merge: true});
+}
+
+export async function saveTicketCloud(ticket: SupportTicket): Promise<void> {
+  await setDoc(doc(db, 'soporte', ticket.id), ticket, {merge: true});
+}
 
 export async function saveEmpresaConfigCloud(empresa: EmpresaConfig): Promise<void> {
   await setDoc(doc(db, 'empresas', empresa.id), empresa, {merge: true});
