@@ -55,6 +55,7 @@ import {
 } from './data/demoSeed';
 import {useOnlineStatus, usePWAInstall} from './hooks/usePWAInstall';
 import {
+  activeBackend,
   commitSaleCloud,
   createEmployeeCloud,
   deleteBannerCloud,
@@ -535,10 +536,13 @@ export default function App() {
     if (userProfile && isOnline) {
       try {
         await createEmployeeCloud({...payload, empresaId: empresa.id});
-        notify(`Cuenta creada en Firebase para ${payload.nombre}`, 'success');
+        notify(
+          `Cuenta creada en ${activeBackend === 'supabase' ? 'Supabase' : 'Firebase'} para ${payload.nombre}`,
+          'success'
+        );
         return;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Error en Cloud Function createEmployeeAccount';
+        const msg = err instanceof Error ? err.message : 'Error al crear la cuenta de empleado';
         notify(msg, 'error');
         return;
       }
@@ -560,10 +564,15 @@ export default function App() {
     if (userProfile && isOnline) {
       try {
         await deleteEmployeeCloud(uid);
-        notify('Cuenta eliminada vía Cloud Function', 'info');
+        notify(
+          activeBackend === 'supabase'
+            ? 'Cuenta eliminada vía Render + Supabase'
+            : 'Cuenta eliminada vía Cloud Function',
+          'info'
+        );
         return;
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Error en Cloud Function deleteUserAccount';
+        const msg = err instanceof Error ? err.message : 'Error al eliminar la cuenta';
         notify(msg, 'error');
         return;
       }

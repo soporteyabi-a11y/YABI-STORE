@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {KeyRound, LogIn, X} from 'lucide-react';
-import {yabiAuth} from '../services/yabiDb';
+import {activeBackend, yabiAuth} from '../services/yabiDb';
 
 interface AuthModalProps {
   open: boolean;
@@ -17,6 +17,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({open, onClose, onSuccess, o
 
   if (!open) return null;
 
+  const backendLabel = activeBackend === 'supabase' ? 'Supabase + Render' : 'Firebase (yabi-store)';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -27,17 +29,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({open, onClose, onSuccess, o
     setError('');
     try {
       await yabiAuth.login(email, password);
-      onNotify('Conectado a tu cuenta de YA’BI Store en Firebase', 'success');
+      onNotify(`Conectado a tu cuenta YA’BI Store (${backendLabel})`, 'success');
       onSuccess();
       onClose();
     } catch (err: unknown) {
       const code = (err as {code?: string})?.code || '';
-      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+      const msg = (err as {message?: string})?.message || '';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        msg.toLowerCase().includes('invalid login credentials')
+      ) {
         setError('Credenciales incorrectas. Verifica tu correo o contraseña.');
       } else if (code === 'auth/user-not-found') {
         setError('No existe una cuenta registrada con este correo.');
       } else {
-        setError('No se pudo iniciar sesión en Firebase. Verifica tu conexión.');
+        setError(`No se pudo iniciar sesión en ${backendLabel}. Verifica tu conexión.`);
       }
     } finally {
       setLoading(false);
@@ -61,20 +68,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({open, onClose, onSuccess, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/65 backdrop-blur-sm p-0 sm:p-4">
+      <div className="w-full sm:max-w-md bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#0D1E35]">
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Conectar cuenta YA&apos;BI Store
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Proyecto Firebase: yabi-store
+              Motor activo: {backendLabel}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#0E1A2E]"
             aria-label="Cerrar inicio de sesión"
           >
             <X className="w-5 h-5" />

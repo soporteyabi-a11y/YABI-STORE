@@ -7,7 +7,24 @@ import 'dotenv/config';
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 
-app.use(cors({origin: process.env.ALLOWED_ORIGIN || '*'}));
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://localhost:3000,http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Origen no permitido por CORS'));
+    },
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 app.use(express.json({limit: '1mb'}));
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -25,7 +42,7 @@ async function requireAdminUser(req, res, next) {
     return res.status(503).json({error: 'Supabase no configurado en Render'});
   }
   const authHeader = req.headers.authorization || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
   if (!token) {
     return res.status(401).json({error: 'Token requerido'});
   }
@@ -56,16 +73,25 @@ app.get('/health', (_req, res) => {
 // Equivalente a Cloud Function createEmployeeAccount
 app.post('/api/employees', requireAdminUser, async (req, res) => {
   try {
-    const {email, password, nombre, rol, empresaId} = req.body;
-    if (!email || !password || !nombre || !rol) {
-      return res.status(400).json({error: 'Campos obligatorios incompletos'});
+    const {email, password, nombre, rol, empresaId} = req.body || {};
+    const validRoles = ['admin', 'vendedor', 'bodega'];
+    if (
+      typeof email !== 'string' ||
+      typeof password !== 'string' ||
+      typeof nombre !== 'string' ||
+      !validRoles.includes(rol) ||
+      password.length < 6
+    ) {
+      return res.status(400).json({error: 'Datos de empleado inválidos o incompletos'});
     }
     const targetEmpresa =
-      req.yabiUser.rol === 'superadmin' && empresaId ? empresaId : req.yabiUser.empresa_id;
+      req.yabiUser.rol === 'superadmin' && typeof empresaId === 'string' && empresaId.trim()
+        ? empresaId.trim()
+        : req.yabiUser.empresa_id;
 
     const {data: created, error: createErr} = await supabaseAdmin.auth.admin.createUser({
-      email: String(email).trim(),
-      password: String(password),
+      email: email.trim().toLowerCase(),
+      password,
       email_confirm: true,
     });
     if (createErr || !created.user) {
@@ -75,8 +101,8 @@ app.post('/api/employees', requireAdminUser, async (req, res) => {
     const {error: insertErr} = await supabaseAdmin.from('usuarios').insert({
       uid: created.user.id,
       empresa_id: targetEmpresa,
-      nombre: String(nombre).trim(),
-      email: String(email).trim(),
+      nombre: nombre.trim(),
+      email: email.trim().toLowerCase(),
       rol,
     });
     if (insertErr) {
@@ -93,10 +119,25 @@ app.post('/api/employees', requireAdminUser, async (req, res) => {
 // Equivalente a Cloud Function deleteUserAccount
 app.delete('/api/employees/:uid', requireAdminUser, async (req, res) => {
   try {
-    const targetUid = req.params.uid;
+    const targetUid = String(req.params.uid || '').trim();
+    if (!targetUid) {
+      return res.status(400).json({error: 'UID requerido'});
+    }
     if (targetUid === req.yabiUser.uid) {
       return res.status(400).json({error: 'No puedes eliminar tu propia cuenta'});
     }
+
+    if (req.yabiUser.rol !== 'superadmin') {
+      const {data: targetProfile} = await supabaseAdmin
+        .from('usuarios')
+        .select('empresa_id')
+        .eq('uid', targetUid)
+        .single();
+      if (!targetProfile || targetProfile.empresa_id !== req.yabiUser.empresa_id) {
+        return res.status(403).json({error: 'No autorizado para eliminar este empleado'});
+      }
+    }
+
     const {error} = await supabaseAdmin.auth.admin.deleteUser(targetUid);
     if (error) {
       return res.status(400).json({error: error.message});
@@ -107,11 +148,11 @@ app.delete('/api/employees/:uid', requireAdminUser, async (req, res) => {
   }
 });
 
-// Envío de correos transaccionales vía Resend API (si RESEND_API_KEY está configurada)
+// Envío de correos transaccionales vía Resend API
 app.post('/api/emails/send', requireAdminUser, async (req, res) => {
-  const {to, subject, html} = req.body;
-  if (!to || !subject) {
-    return res.status(400).json({error: 'Destinatario y asunto requeridos'});
+  const {to, subject, html} = req.body || {};
+  if (typeof to !== 'string' || !to.includes('@') || typeof subject !== 'string' || !subject.trim()) {
+    return res.status(400).json({error: 'Destinatario y asunto válidos requeridos'});
   }
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) {
@@ -128,9 +169,9 @@ app.post('/api/emails/send', requireAdminUser, async (req, res) => {
     },
     body: JSON.stringify({
       from: process.env.EMAIL_FROM || 'YA’BI Store <notificaciones@yabistore.co>',
-      to: [to],
-      subject,
-      html: html || `<p>${subject}</p>`,
+      to: [to.trim()],
+      subject: subject.trim(),
+      html: typeof html === 'string' && html.trim() ? html : `<p>${subject.trim()}</p>`,
     }),
   });
   const data = await resp.json();
@@ -140,11 +181,19 @@ app.post('/api/emails/send', requireAdminUser, async (req, res) => {
 // Firma de integridad SHA-256 para checkout Wompi Colombia
 app.post('/api/wompi/signature', (req, res) => {
   const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
-  const {reference, amountInCents, currency = 'COP'} = req.body;
+  const {reference, amountInCents, currency = 'COP'} = req.body || {};
   if (!integritySecret) {
     return res.status(503).json({error: 'WOMPI_INTEGRITY_SECRET no configurado'});
   }
-  const raw = `${reference}${amountInCents}${currency}${integritySecret}`;
+  if (
+    typeof reference !== 'string' ||
+    !reference.trim() ||
+    !Number.isInteger(amountInCents) ||
+    amountInCents <= 0
+  ) {
+    return res.status(400).json({error: 'Referencia y monto en centavos válidos requeridos'});
+  }
+  const raw = `${reference.trim()}${amountInCents}${String(currency)}${integritySecret}`;
   const signature = crypto.createHash('sha256').update(raw).digest('hex');
   res.json({signature});
 });

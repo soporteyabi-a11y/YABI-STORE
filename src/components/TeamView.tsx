@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {Plus, ShieldCheck, Trash2, UserPlus, X} from 'lucide-react';
+import {activeBackend} from '../services/yabiDb';
 import type {UserProfile} from '../types/yabi';
 
 interface TeamViewProps {
@@ -66,8 +67,10 @@ export const TeamView: React.FC<TeamViewProps> = ({
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {isCloudConnected
-              ? 'Conectado a Cloud Functions (createEmployeeAccount / deleteUserAccount) en yabi-store.'
-              : 'En modo demo local. Inicia sesión como administrador para crear cuentas reales en Firebase Auth.'}
+              ? activeBackend === 'supabase'
+                ? 'Conectado a Supabase Auth + API en Render (/api/employees).'
+                : 'Conectado a Cloud Functions (createEmployeeAccount / deleteUserAccount) en yabi-store.'
+              : 'En modo demo local. Inicia sesión como administrador para crear cuentas reales en la nube.'}
           </p>
         </div>
 

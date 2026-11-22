@@ -12,6 +12,8 @@ import {
   Smartphone,
   Sun,
 } from 'lucide-react';
+import {activeBackend} from '../services/yabiDb';
+import {renderApiUrl} from '../services/supabaseClient';
 import type {
   Customer,
   EmpresaConfig,
@@ -162,12 +164,16 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
 
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-5xl">
-      {/* Account & Firebase Sync */}
+      {/* Account & Cloud Sync */}
       <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-            Proyecto: yabi-store · Empresa: {empresa.id} · Estado:{' '}
-            {dataSource === 'firebase' ? 'Tiempo real onSnapshot' : 'Modo Demo / Offline'}
+            Motor: {activeBackend === 'supabase' ? 'Supabase Postgres + Realtime' : 'Firebase yabi-store'} · Empresa: {empresa.id} · Estado:{' '}
+            {dataSource === 'firebase'
+              ? activeBackend === 'supabase'
+                ? 'Conectado a Supabase Realtime'
+                : 'Tiempo real onSnapshot'
+              : 'Modo Demo / Offline'}
           </p>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             {userProfile ? userProfile.nombre : empresa.nombre}
@@ -213,28 +219,65 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       </div>
 
       {/* Supabase / Render Full Migration Backup */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center shrink-0">
-            <Database className="w-5 h-5" />
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center shrink-0">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Conexión y migración a Supabase + Render
+                </h3>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                    activeBackend === 'supabase'
+                      ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                      : 'bg-[#00C8FF]/15 text-[#00C8FF] border border-[#00C8FF]/30'
+                  }`}
+                >
+                  {activeBackend === 'supabase'
+                    ? 'Supabase activo'
+                    : 'Listo para activar con VITE_SUPABASE_URL'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Exporta todas las colecciones ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores, {tickets.length} tickets y {employees.length} usuarios) para importarlas en tu proyecto de Supabase.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-              Exportación completa para migración (Supabase / Render)
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Descarga en un solo JSON todas las colecciones actuales ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores, {tickets.length} tickets y {employees.length} usuarios). Esquema SQL, importador y servidor Express listos en <span className="font-mono text-[#00C8FF]">/migration-supabase-render/</span>.
+          <button
+            type="button"
+            onClick={handleExportMigrationBundle}
+            className="min-h-[46px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 shrink-0 whitespace-nowrap"
+          >
+            <Download className="w-4 h-4" />
+            Exportar JSON completo
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
+            <p className="font-semibold text-slate-800 dark:text-white">1. Esquema SQL</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-0.5">
+              Ejecuta <span className="font-mono text-[#00C8FF]">supabase_schema.sql</span> en el SQL Editor de Supabase (9 tablas, RLS, RPCs y bucket <span className="font-mono">yabi-media</span>).
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
+            <p className="font-semibold text-slate-800 dark:text-white">2. Importar JSON</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-0.5">
+              Descarga el respaldo JSON de aquí arriba y corre <span className="font-mono text-[#00C8FF]">node import_yabi_json.mjs</span>.
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
+            <p className="font-semibold text-slate-800 dark:text-white">3. Variables Frontend &amp; Render</p>
+            <p className="text-slate-500 dark:text-slate-400 mt-0.5">
+              Define <span className="font-mono">VITE_SUPABASE_URL</span>, <span className="font-mono">VITE_SUPABASE_ANON_KEY</span> y{' '}
+              <span className="font-mono">{renderApiUrl ? renderApiUrl : 'VITE_RENDER_API_URL'}</span>.
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleExportMigrationBundle}
-          className="min-h-[46px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 shrink-0 whitespace-nowrap"
-        >
-          <Download className="w-4 h-4" />
-          Exportar JSON completo
-        </button>
       </div>
 
       {/* Company Settings */}

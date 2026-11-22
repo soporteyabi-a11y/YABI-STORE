@@ -32,6 +32,28 @@ import type {
   SupportTicket,
   UserProfile,
 } from '../types/yabi';
+import {isSupabaseConfigured} from './supabaseClient';
+import {
+  commitSaleSupabase,
+  createEmployeeSupabase,
+  deleteBannerSupabase,
+  deleteEmployeeSupabase,
+  deleteProductSupabase,
+  loadUserContextSupabase,
+  receivePurchaseSupabase,
+  saveBannerSupabase,
+  saveCustomerSupabase,
+  saveEmpresaConfigSupabase,
+  saveProductSupabase,
+  savePurchaseSupabase,
+  saveSaleSupabase,
+  saveSupplierSupabase,
+  saveTicketSupabase,
+  subscribeEmpresaRealtimeSupabase,
+  supabaseAuth,
+  uploadImageToSupabaseStorage,
+  type AuthSessionUser,
+} from './supabaseDb';
 import {
   DEMO_BANNERS,
   DEMO_CUSTOMERS,
@@ -44,6 +66,8 @@ import {
   DEMO_SUPPLIERS,
   DEMO_TICKETS,
 } from '../data/demoSeed';
+
+export const activeBackend: 'supabase' | 'firebase' = isSupabaseConfigured ? 'supabase' : 'firebase';
 
 const LOCAL_KEYS = {
   products: 'yabi_v2_products',
@@ -78,16 +102,30 @@ function writeLocal<T>(key: string, data: T): void {
 }
 
 export const yabiAuth = {
-  subscribe: (cb: (user: User | null) => void) => onAuthStateChanged(auth, cb),
-  login: (email: string, pass: string) => signInWithEmailAndPassword(auth, email.trim(), pass),
-  logout: () => signOut(auth),
-  resetPassword: (email: string) => sendPasswordResetEmail(auth, email.trim()),
+  subscribe: (cb: (user: AuthSessionUser | User | null) => void) =>
+    isSupabaseConfigured ? supabaseAuth.subscribe(cb) : onAuthStateChanged(auth, cb),
+  login: (email: string, pass: string) =>
+    isSupabaseConfigured
+      ? supabaseAuth.login(email, pass)
+      : signInWithEmailAndPassword(auth, email.trim(), pass),
+  logout: () => (isSupabaseConfigured ? supabaseAuth.logout() : signOut(auth)),
+  resetPassword: (email: string) =>
+    isSupabaseConfigured
+      ? supabaseAuth.resetPassword(email)
+      : sendPasswordResetEmail(auth, email.trim()),
 };
 
 export async function loadUserContext(uid: string): Promise<{
   profile: UserProfile | null;
   empresa: EmpresaConfig;
 }> {
+  if (isSupabaseConfigured) {
+    try {
+      return await loadUserContextSupabase(uid);
+    } catch {
+      return {profile: null, empresa: DEMO_EMPRESA};
+    }
+  }
   try {
     const userSnap = await getDoc(doc(db, 'usuarios', uid));
     const profile = userSnap.exists() ? ({uid, ...userSnap.data()} as UserProfile) : null;
@@ -123,6 +161,10 @@ export function subscribeEmpresaRealtime(
   isSuperAdmin: boolean,
   callbacks: LiveSyncCallbacks
 ): () => void {
+  if (isSupabaseConfigured) {
+    return subscribeEmpresaRealtimeSupabase(empresaId, isSuperAdmin, callbacks);
+  }
+
   const unsubs: Unsubscribe[] = [];
 
   const handleErr = () => {
@@ -307,34 +349,42 @@ export const localStore = {
 };
 
 export async function saveSaleCloud(empresaId: string, sale: Sale): Promise<void> {
+  if (isSupabaseConfigured) return saveSaleSupabase(empresaId, sale);
   await setDoc(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale, {merge: true});
 }
 
 export async function saveTicketCloud(ticket: SupportTicket): Promise<void> {
+  if (isSupabaseConfigured) return saveTicketSupabase(ticket);
   await setDoc(doc(db, 'soporte', ticket.id), ticket, {merge: true});
 }
 
 export async function saveEmpresaConfigCloud(empresa: EmpresaConfig): Promise<void> {
+  if (isSupabaseConfigured) return saveEmpresaConfigSupabase(empresa);
   await setDoc(doc(db, 'empresas', empresa.id), empresa, {merge: true});
 }
 
 export async function saveProductCloud(empresaId: string, product: Product): Promise<void> {
+  if (isSupabaseConfigured) return saveProductSupabase(empresaId, product);
   await setDoc(doc(db, 'empresas', empresaId, 'productos', product.id), product, {merge: true});
 }
 
 export async function deleteProductCloud(empresaId: string, productId: string): Promise<void> {
+  if (isSupabaseConfigured) return deleteProductSupabase(empresaId, productId);
   await deleteDoc(doc(db, 'empresas', empresaId, 'productos', productId));
 }
 
 export async function saveCustomerCloud(empresaId: string, customer: Customer): Promise<void> {
+  if (isSupabaseConfigured) return saveCustomerSupabase(empresaId, customer);
   await setDoc(doc(db, 'empresas', empresaId, 'clientes', customer.id), customer, {merge: true});
 }
 
 export async function saveSupplierCloud(empresaId: string, supplier: Supplier): Promise<void> {
+  if (isSupabaseConfigured) return saveSupplierSupabase(empresaId, supplier);
   await setDoc(doc(db, 'empresas', empresaId, 'proveedores', supplier.id), supplier, {merge: true});
 }
 
 export async function savePurchaseCloud(empresaId: string, purchase: Purchase): Promise<void> {
+  if (isSupabaseConfigured) return savePurchaseSupabase(empresaId, purchase);
   await setDoc(doc(db, 'empresas', empresaId, 'compras', purchase.id), purchase, {merge: true});
 }
 
@@ -344,6 +394,9 @@ export async function receivePurchaseCloud(
   productId: string,
   newStock: number
 ): Promise<void> {
+  if (isSupabaseConfigured) {
+    return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
+  }
   const batch = writeBatch(db);
   batch.set(
     doc(db, 'empresas', empresaId, 'compras', purchaseId),
@@ -359,10 +412,12 @@ export async function receivePurchaseCloud(
 }
 
 export async function saveBannerCloud(empresaId: string, banner: StoreBanner): Promise<void> {
+  if (isSupabaseConfigured) return saveBannerSupabase(empresaId, banner);
   await setDoc(doc(db, 'empresas', empresaId, 'banners', banner.id), banner, {merge: true});
 }
 
 export async function deleteBannerCloud(empresaId: string, bannerId: string): Promise<void> {
+  if (isSupabaseConfigured) return deleteBannerSupabase(empresaId, bannerId);
   await deleteDoc(doc(db, 'empresas', empresaId, 'banners', bannerId));
 }
 
@@ -371,6 +426,9 @@ export async function commitSaleCloud(
   sale: Sale,
   updatedStocks: {id: string; stock: number}[]
 ): Promise<void> {
+  if (isSupabaseConfigured) {
+    return commitSaleSupabase(empresaId, sale, updatedStocks);
+  }
   const batch = writeBatch(db);
   batch.set(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale);
   for (const item of updatedStocks) {
@@ -390,6 +448,7 @@ export async function createEmployeeCloud(payload: {
   rol: 'admin' | 'vendedor' | 'bodega';
   empresaId: string;
 }): Promise<string> {
+  if (isSupabaseConfigured) return createEmployeeSupabase(payload);
   const fn = httpsCallable<
     {email: string; password: string; nombre: string; rol: string; empresaId: string},
     {uid: string}
@@ -405,6 +464,7 @@ export async function createEmployeeCloud(payload: {
 }
 
 export async function deleteEmployeeCloud(uid: string): Promise<void> {
+  if (isSupabaseConfigured) return deleteEmployeeSupabase(uid);
   const fn = httpsCallable<{uid: string}, unknown>(functions, 'deleteUserAccount');
   await fn({uid});
 }
@@ -415,6 +475,9 @@ export function uploadImageToFirebaseStorage(
   file: File,
   onProgress?: (pct: number) => void
 ): Promise<string> {
+  if (isSupabaseConfigured) {
+    return uploadImageToSupabaseStorage(empresaId, folder, file, onProgress);
+  }
   return new Promise((resolve, reject) => {
     const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storageRef = ref(
