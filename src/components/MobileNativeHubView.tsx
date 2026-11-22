@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import {activeBackend} from '../services/yabiDb';
 import {renderApiUrl} from '../services/supabaseClient';
+import {buildFullSupabaseSql} from '../utils/supabaseSqlExport';
 import type {
   Customer,
   EmpresaConfig,
@@ -162,6 +163,38 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
     onNotify('Respaldo JSON completo descargado para migrar a Supabase / Render', 'success');
   };
 
+  const generateSqlText = () =>
+    buildFullSupabaseSql({
+      empresa,
+      products,
+      customers,
+      suppliers,
+      purchases,
+      banners,
+      sales,
+      tickets,
+    });
+
+  const handleCopyFullSql = async () => {
+    const sql = generateSqlText();
+    await handleCopy('full-sql', sql);
+    onNotify('SQL completo (tablas + datos) copiado. Pégalo en Supabase -> SQL Editor.', 'success');
+  };
+
+  const handleDownloadFullSql = () => {
+    const sql = generateSqlText();
+    const blob = new Blob([sql], {type: 'application/sql;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `yabi-store-supabase-${empresa.id}-${new Date().toISOString().slice(0, 10)}.sql`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    onNotify('Archivo .SQL completo descargado para Supabase SQL Editor', 'success');
+  };
+
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-5xl">
       {/* Account & Cloud Sync */}
@@ -243,31 +276,49 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Exporta todas las colecciones ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores, {tickets.length} tickets y {employees.length} usuarios) para importarlas en tu proyecto de Supabase.
+                Genera el archivo <span className="font-mono text-[#00C8FF]">.sql</span> listo para pegar directamente en <strong>Supabase → SQL Editor</strong> ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores y {tickets.length} tickets). No pegues el JSON en el SQL Editor; el JSON es solo para el script CLI.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleExportMigrationBundle}
-            className="min-h-[46px] px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 shrink-0 whitespace-nowrap"
-          >
-            <Download className="w-4 h-4" />
-            Exportar JSON completo
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyFullSql}
+              className="min-h-[44px] px-4 rounded-xl bg-[#00C8FF] hover:bg-[#33D6FF] text-[#050A14] text-sm font-bold flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              {copiedId === 'full-sql' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedId === 'full-sql' ? 'SQL Copiado' : 'Copiar SQL completo'}
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadFullSql}
+              className="min-h-[44px] px-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              Descargar .SQL
+            </button>
+            <button
+              type="button"
+              onClick={handleExportMigrationBundle}
+              className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#0E1A2E] text-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" />
+              JSON CLI
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
-            <p className="font-semibold text-slate-800 dark:text-white">1. Esquema SQL</p>
+            <p className="font-semibold text-slate-800 dark:text-white">1. Copiar / Descargar SQL</p>
             <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-              Ejecuta <span className="font-mono text-[#00C8FF]">supabase_schema.sql</span> en el SQL Editor de Supabase (9 tablas, RLS, RPCs y bucket <span className="font-mono">yabi-media</span>).
+              Pulsa <strong>Copiar SQL completo</strong> y pégalo en <strong>Supabase → SQL Editor → Run</strong> (crea las 9 tablas, RLS, bucket <span className="font-mono">yabi-media</span> y tus datos).
             </p>
           </div>
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
-            <p className="font-semibold text-slate-800 dark:text-white">2. Importar JSON</p>
+            <p className="font-semibold text-slate-800 dark:text-white">2. Usuario Administrador</p>
             <p className="text-slate-500 dark:text-slate-400 mt-0.5">
-              Descarga el respaldo JSON de aquí arriba y corre <span className="font-mono text-[#00C8FF]">node import_yabi_json.mjs</span>.
+              En <strong>Authentication → Users</strong> crea tu cuenta y vincula su UUID en <span className="font-mono text-[#00C8FF]">public.usuarios</span>.
             </p>
           </div>
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
