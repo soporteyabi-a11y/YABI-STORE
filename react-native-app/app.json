@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "YA'BI Store",
+    "slug": "yabi-store",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "co.yabistore.app"
+    },
+    "android": {
+      "package": "co.yabistore.app",
+      "permissions": ["CAMERA"]
+    }
+  }
+}

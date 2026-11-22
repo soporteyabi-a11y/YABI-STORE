@@ -1,0 +1,6 @@
+{
+  "name": "YA'BI Store — POS & Gestión Móvil / PC",
+  "description": "Plataforma todo-en-uno de Punto de Venta (POS), inventario en tiempo real, tienda virtual y analíticas para PYMES en Colombia, optimizada para móvil nativo y PC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
