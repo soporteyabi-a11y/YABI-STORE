@@ -223,7 +223,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Exportación completa para migración (Supabase / Render)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Descarga en un solo archivo JSON todas las colecciones actuales ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores, {tickets.length} tickets y {employees.length} usuarios).
+              Descarga en un solo JSON todas las colecciones actuales ({products.length} productos, {sales.length} ventas, {purchases.length} compras, {customers.length} clientes, {suppliers.length} proveedores, {tickets.length} tickets y {employees.length} usuarios). Esquema SQL, importador y servidor Express listos en <span className="font-mono text-[#00C8FF]">/migration-supabase-render/</span>.
             </p>
           </div>
         </div>
@@ -382,7 +382,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Proyecto nativo React Native (Expo) sincronizado en tiempo real
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Código fuente en <span className="font-mono">/react-native-app</span> con <span className="font-mono">onSnapshot</span> conectado al mismo Firestore de <span className="font-mono">yabi-store</span>.
+              Código fuente completo en <span className="font-mono">/react-native-app</span> con <span className="font-mono">onSnapshot</span> conectado a <span className="font-mono">yabi-store</span>: POS con escáner de cámara, Ventas/Guías, Inventario, Compras atómicas, Clientes/Proveedores, Banners, Reportes omnicanal y Soporte.
             </p>
           </div>
         </div>

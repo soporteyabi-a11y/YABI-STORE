@@ -59,7 +59,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
 
   return (
     <div className="space-y-5 pb-24 lg:pb-8 max-w-4xl">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             Equipo y accesos ({employees.length})
@@ -82,7 +82,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
       </div>
 
       {/* Team List */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {employees.length === 0 ? (
             <p className="py-12 text-center text-sm text-slate-500">
@@ -130,7 +130,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
       </div>
 
       {/* Role Summary */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 space-y-2.5">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-2.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
           <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
           Permisos por rol en YA&apos;BI Store
@@ -153,7 +153,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
-          <div className="w-full sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
+          <div className="w-full sm:max-w-md bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
             <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                 Crear cuenta de empleado

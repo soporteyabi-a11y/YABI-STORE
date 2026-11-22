@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: yabi-store-api
+    runtime: node
+    plan: free
+    rootDir: migration-supabase-render
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: WOMPI_INTEGRITY_SECRET
+        sync: false

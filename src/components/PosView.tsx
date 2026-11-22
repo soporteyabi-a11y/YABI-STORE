@@ -16,11 +16,13 @@ import {
 } from 'lucide-react';
 import type {CartItem, Customer, PaymentMethod, Product} from '../types/yabi';
 import {formatCOP} from '../utils/format';
+import {CameraBarcodeScanner} from './CameraBarcodeScanner';
 import {ProductImage} from './ProductImage';
 
 interface PosViewProps {
   products: Product[];
   customers: Customer[];
+  ivaRate?: number;
   onCompleteSale: (payload: {
     items: CartItem[];
     customer: Customer | null;
@@ -41,13 +43,14 @@ const PAYMENT_METHODS: {id: PaymentMethod; label: string; icon: React.ComponentT
 export const PosView: React.FC<PosViewProps> = ({
   products,
   customers,
+  ivaRate = 0,
   onCompleteSale,
   onNotify,
 }) => {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Todas');
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(customers[4]?.id || customers[0]?.id || '');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Efectivo');
   const [discountInput, setDiscountInput] = useState('');
   const [cashInput, setCashInput] = useState('');
@@ -81,6 +84,8 @@ export const PosView: React.FC<PosViewProps> = ({
   );
   const discount = Math.min(subtotal, Math.max(0, Number(discountInput) || 0));
   const total = Math.max(0, subtotal - discount);
+  const baseGravable = ivaRate > 0 ? Math.round(total / (1 + ivaRate / 100)) : total;
+  const ivaValor = ivaRate > 0 ? Math.max(0, total - baseGravable) : 0;
   const cashReceived = Number(cashInput) || 0;
   const change = paymentMethod === 'Efectivo' && cashReceived > total ? cashReceived - total : 0;
   const totalUnits = cart.reduce((sum, i) => sum + i.qty, 0);
@@ -186,8 +191,11 @@ export const PosView: React.FC<PosViewProps> = ({
           aria-label="Seleccionar cliente"
           className="flex-1 bg-transparent text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none truncate"
         >
+          <option value="" className="bg-white dark:bg-[#0B1525]">
+            Mostrador / Cliente General
+          </option>
           {customers.map((c) => (
-            <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900">
+            <option key={c.id} value={c.id} className="bg-white dark:bg-[#0B1525]">
               {c.nombre}
             </option>
           ))}
@@ -377,13 +385,21 @@ export const PosView: React.FC<PosViewProps> = ({
             <span className="font-mono tabular-nums">{formatCOP(subtotal)}</span>
           </div>
           {discount > 0 && (
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400 text-xs">
+            <div className="flex justify-between text-emerald-600 dark:text-[#00E87C] text-xs">
               <span>Descuento</span>
               <span className="font-mono tabular-nums">-{formatCOP(discount)}</span>
             </div>
           )}
+          {ivaRate > 0 && total > 0 && (
+            <div className="flex justify-between text-slate-500 dark:text-slate-400 text-xs">
+              <span>IVA incluido ({ivaRate}%)</span>
+              <span className="font-mono tabular-nums">
+                Base {formatCOP(baseGravable)} · IVA {formatCOP(ivaValor)}
+              </span>
+            </div>
+          )}
           {paymentMethod === 'Efectivo' && change > 0 && (
-            <div className="flex justify-between text-sky-600 dark:text-sky-400 text-xs font-medium">
+            <div className="flex justify-between text-sky-600 dark:text-[#00C8FF] text-xs font-medium">
               <span>Cambio a devolver</span>
               <span className="font-mono tabular-nums">{formatCOP(change)}</span>
             </div>
@@ -592,11 +608,11 @@ export const PosView: React.FC<PosViewProps> = ({
 
       {/* Quick SKU / Barcode Modal */}
       {skuModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
-          <div className="w-full sm:max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full sm:max-w-sm bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-[#0D1E35] flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                Ingreso rápido por SKU
+                Escáner / Ingreso por SKU
               </h3>
               <button
                 type="button"
@@ -607,8 +623,25 @@ export const PosView: React.FC<PosViewProps> = ({
               </button>
             </div>
             <form onSubmit={handleQuickSkuAdd} className="p-5 space-y-4 pb-safe">
+              <CameraBarcodeScanner
+                onDetected={(scanned) => {
+                  const match = products.find(
+                    (p) =>
+                      p.sku.toLowerCase() === scanned.toLowerCase() ||
+                      p.id.toLowerCase() === scanned.toLowerCase()
+                  );
+                  if (match) {
+                    addToCart(match);
+                    setSkuModalOpen(false);
+                    onNotify(`Escaneado y agregado: ${match.nombre}`, 'success');
+                  } else {
+                    setSkuCode(scanned);
+                    onNotify(`Código leído (${scanned}); confirma o busca manualmente`, 'info');
+                  }
+                }}
+              />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Escribe o escanea con lector USB/Bluetooth el código SKU (ej. <span className="font-mono">ROP-001</span>, <span className="font-mono">CAL-002</span>).
+                También puedes escribir o usar lector láser USB/Bluetooth (ej. <span className="font-mono">ROP-001</span>).
               </p>
               <input
                 type="text"
@@ -616,11 +649,11 @@ export const PosView: React.FC<PosViewProps> = ({
                 value={skuCode}
                 onChange={(e) => setSkuCode(e.target.value)}
                 placeholder="Ej. ROP-001"
-                className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-base text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full h-12 px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-base text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00C8FF]"
               />
               <button
                 type="submit"
-                className="w-full min-h-[46px] rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold"
+                className="w-full min-h-[46px] rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-bold"
               >
                 Agregar al ticket
               </button>

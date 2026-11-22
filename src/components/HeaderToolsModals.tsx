@@ -2,6 +2,7 @@ import React, {useMemo, useState} from 'react';
 import {Camera, Mail, Search, ShoppingCart, X} from 'lucide-react';
 import type {EmailLog, Product} from '../types/yabi';
 import {formatCOP} from '../utils/format';
+import {CameraBarcodeScanner} from './CameraBarcodeScanner';
 import {ProductImage} from './ProductImage';
 
 interface ScannerModalProps {
@@ -39,7 +40,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-[#00C8FF]" />
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-              Escáner rápido de código / SKU
+              Escáner de cámara y SKU
             </h3>
           </div>
           <button
@@ -52,6 +53,21 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
         </div>
 
         <div className="p-5 space-y-4 pb-safe">
+          <CameraBarcodeScanner
+            onDetected={(scanned) => {
+              setCode(scanned);
+              const exact = products.find(
+                (p) =>
+                  p.sku.toLowerCase() === scanned.toLowerCase() ||
+                  p.id.toLowerCase() === scanned.toLowerCase()
+              );
+              if (exact) {
+                onSelectProductToPos(exact);
+                onClose();
+              }
+            }}
+          />
+
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -63,7 +79,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
             />
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-[#0D1E35] max-h-72 overflow-y-auto">
+          <div className="divide-y divide-slate-100 dark:divide-[#0D1E35] max-h-64 overflow-y-auto">
             {matches.length === 0 ? (
               <p className="py-8 text-center text-xs text-slate-500">
                 No se encontró ningún producto con ese código.

@@ -104,25 +104,25 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
     <div className="space-y-5 pb-24 lg:pb-8">
       {/* KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Órdenes registradas</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1">
             {metrics.totalCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Por recibir</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1">
             {metrics.pendingCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Recibidas en bodega</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
             {metrics.receivedCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Total en compras</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 truncate">
             {formatCOP(metrics.totalInvested)}
@@ -144,7 +144,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2">
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+          <div className="flex items-center p-1 bg-slate-100 dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-xl">
             {(
               [
                 {id: 'all', label: 'Todas'},
@@ -179,7 +179,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       </div>
 
       {/* Purchase Orders List */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-slate-500">
@@ -256,7 +256,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       {/* Create Purchase Order Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
-          <div className="w-full sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
+          <div className="w-full sm:max-w-md bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
             <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                 Nueva orden de compra

@@ -20,6 +20,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   if (!sale) return null;
 
+  const ivaPct = Number(empresa.iva ?? 0);
+  const baseGravable = ivaPct > 0 ? Math.round(sale.total / (1 + ivaPct / 100)) : sale.total;
+  const ivaValor = ivaPct > 0 ? Math.max(0, sale.total - baseGravable) : 0;
   const change = cashReceived && cashReceived > sale.total ? cashReceived - sale.total : 0;
 
   const handleCopyText = async () => {
@@ -27,14 +30,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       `${empresa.nombre}`,
       empresa.nit ? `NIT: ${empresa.nit}` : '',
       `Comprobante ${sale.orden} · ${sale.fecha} ${sale.hora || ''}`,
+      `Canal: ${sale.origen || 'POS'}`,
       `Cliente: ${sale.cliente}`,
-      `Pago: ${sale.pago}`,
+      `Pago: ${sale.pago} (${sale.estado})`,
+      sale.notas ? `Entrega: ${sale.notas}` : '',
+      sale.transportadora ? `Envío: ${sale.transportadora}${sale.guia ? ` · Guía ${sale.guia}` : ''}` : '',
       '----------------------------',
       ...(sale.items && sale.items.length > 0
         ? sale.items.map((it) => `${it.qty}x ${it.nombre} - ${formatCOP(it.precio * it.qty)}`)
         : [`${sale.qty}x ${sale.producto} - ${formatCOP(sale.total)}`]),
       '----------------------------',
       sale.desc > 0 ? `Descuento: -${formatCOP(sale.desc)}` : '',
+      ivaPct > 0 ? `Base gravable: ${formatCOP(baseGravable)}` : '',
+      ivaPct > 0 ? `IVA (${ivaPct}%): ${formatCOP(ivaValor)}` : '',
       `TOTAL: ${formatCOP(sale.total)}`,
     ]
       .filter(Boolean)
@@ -49,25 +57,26 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full sm:max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-sm p-0 sm:p-4">
+      <div className="w-full sm:max-w-md bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#0D1E35]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center">
               <Check className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                Venta registrada
+                Comprobante {sale.orden}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-mono tabular-nums">
-                Orden {sale.orden} · {sale.origen || 'POS'}
+                {sale.origen || 'POS'} · {sale.estado}
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#070E1A] transition-colors"
             aria-label="Cerrar recibo"
           >
             <X className="w-5 h-5" />
@@ -75,8 +84,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
-          <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3 font-mono text-xs">
-            <div className="text-center border-b border-dashed border-slate-300 dark:border-slate-700 pb-3">
+          <div className="bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35] rounded-xl p-4 space-y-3 font-mono text-xs">
+            <div className="text-center border-b border-dashed border-slate-300 dark:border-[#0D1E35] pb-3">
               <p className="text-sm font-bold text-slate-900 dark:text-white font-sans">
                 {empresa.nombre}
               </p>
@@ -92,19 +101,35 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
 
             <div className="space-y-1 text-slate-600 dark:text-slate-300">
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span>Cliente</span>
                 <span className="font-medium text-slate-900 dark:text-white truncate max-w-[200px]">
                   {sale.cliente}
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span>Medio de pago</span>
                 <span className="font-medium text-slate-900 dark:text-white">{sale.pago}</span>
               </div>
+              {sale.notas && (
+                <div className="flex justify-between gap-2">
+                  <span>Entrega</span>
+                  <span className="font-medium text-sky-600 dark:text-[#00C8FF] text-right max-w-[210px]">
+                    {sale.notas}
+                  </span>
+                </div>
+              )}
+              {(sale.transportadora || sale.guia) && (
+                <div className="flex justify-between gap-2">
+                  <span>Guía envío</span>
+                  <span className="font-medium text-slate-900 dark:text-white text-right">
+                    {sale.transportadora || ''} {sale.guia ? `· ${sale.guia}` : ''}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="border-t border-dashed border-slate-300 dark:border-slate-700 pt-3 space-y-2">
+            <div className="border-t border-dashed border-slate-300 dark:border-[#0D1E35] pt-3 space-y-2">
               {sale.items && sale.items.length > 0 ? (
                 sale.items.map((item, idx) => (
                   <div key={`${item.productoId}-${idx}`} className="flex justify-between gap-2">
@@ -128,14 +153,26 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               )}
             </div>
 
-            <div className="border-t border-dashed border-slate-300 dark:border-slate-700 pt-3 space-y-1">
+            <div className="border-t border-dashed border-slate-300 dark:border-[#0D1E35] pt-3 space-y-1">
               {sale.desc > 0 && (
                 <div className="flex justify-between text-slate-500 dark:text-slate-400">
                   <span>Descuento</span>
                   <span className="tabular-nums">-{formatCOP(sale.desc)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white">
+              {ivaPct > 0 && (
+                <>
+                  <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                    <span>Base gravable</span>
+                    <span className="tabular-nums">{formatCOP(baseGravable)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                    <span>IVA ({ivaPct}%)</span>
+                    <span className="tabular-nums">{formatCOP(ivaValor)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white pt-1">
                 <span>TOTAL PAGADO</span>
                 <span className="tabular-nums">{formatCOP(sale.total)}</span>
               </div>
@@ -145,7 +182,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     <span>Efectivo recibido</span>
                     <span className="tabular-nums">{formatCOP(cashReceived)}</span>
                   </div>
-                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <div className="flex justify-between text-emerald-600 dark:text-[#00E87C] font-semibold">
                     <span>Cambio</span>
                     <span className="tabular-nums">{formatCOP(change)}</span>
                   </div>
@@ -155,17 +192,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
         </div>
 
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-3 pb-safe">
+        <div className="p-4 border-t border-slate-200 dark:border-[#0D1E35] grid grid-cols-2 gap-3 pb-safe">
           <button
+            type="button"
             onClick={handleCopyText}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#070E1A] flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
           >
             <Share2 className="w-4 h-4" />
             Copiar recibo
           </button>
           <button
+            type="button"
             onClick={() => window.print()}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-bold flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
           >
             <Printer className="w-4 h-4" />
             Imprimir

@@ -252,6 +252,43 @@ export default function App() {
     };
   }, []);
 
+  // Reintento automático de ventas guardadas offline al recuperar conexión y sesión Firebase
+  useEffect(() => {
+    if (!isOnline || !userProfile) return;
+    const pending = sales.filter((s) => s.pendingSync);
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      let syncedCount = 0;
+      const syncedIds = new Set<string>();
+      for (const sale of pending) {
+        try {
+          const cleanSale: Sale = {...sale, pendingSync: false};
+          await saveSaleCloud(empresa.id, cleanSale);
+          syncedIds.add(sale.id);
+          syncedCount++;
+        } catch {
+          // retry on next online transition
+        }
+      }
+      if (!cancelled && syncedCount > 0) {
+        setSales((prev) => {
+          const updated = prev.map((s) =>
+            syncedIds.has(s.id) ? {...s, pendingSync: false} : s
+          );
+          localStore.saveSales(updated);
+          return updated;
+        });
+        notify(`${syncedCount} venta(s) offline sincronizadas con Firebase`, 'success');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline, userProfile, empresa.id, sales, notify]);
+
   const appendEmailLog = (entry: Omit<EmailLog, 'id' | 'fecha'>) => {
     const newLog: EmailLog = {
       id: genId('EM'),
@@ -335,13 +372,22 @@ export default function App() {
       try {
         await commitSaleCloud(empresa.id, sale, updatedStocks);
       } catch {
-        const nextSales = [sale, ...sales];
+        const offlineSale: Sale = {...sale, pendingSync: true};
+        const nextSales = [offlineSale, ...sales];
         setProducts(nextProducts);
         setSales(nextSales);
         localStore.saveProducts(nextProducts);
         localStore.saveSales(nextSales);
-        notify('Venta guardada localmente; pendiente sincronizar', 'info');
+        notify('Venta guardada localmente; se sincronizará al volver internet', 'info');
       }
+    } else if (userProfile && !isOnline) {
+      const offlineSale: Sale = {...sale, pendingSync: true};
+      const nextSales = [offlineSale, ...sales];
+      setProducts(nextProducts);
+      setSales(nextSales);
+      localStore.saveProducts(nextProducts);
+      localStore.saveSales(nextSales);
+      notify('Sin internet: venta en cola de sincronización', 'info');
     }
 
     if (payload.customer?.email) {
@@ -451,27 +497,33 @@ export default function App() {
   };
 
   const handleSaveCustomer = async (customer: Customer) => {
+    const exists = customers.some((c) => c.id === customer.id);
     if (dataSource !== 'firebase') {
-      const next = [customer, ...customers];
+      const next = exists
+        ? customers.map((c) => (c.id === customer.id ? customer : c))
+        : [customer, ...customers];
       setCustomers(next);
       localStore.saveCustomers(next);
     }
     if (userProfile && isOnline) {
       await saveCustomerCloud(empresa.id, customer);
     }
-    notify('Cliente guardado', 'success');
+    notify(exists ? 'Cliente actualizado' : 'Cliente guardado', 'success');
   };
 
   const handleSaveSupplier = async (supplier: Supplier) => {
+    const exists = suppliers.some((s) => s.id === supplier.id);
     if (dataSource !== 'firebase') {
-      const next = [supplier, ...suppliers];
+      const next = exists
+        ? suppliers.map((s) => (s.id === supplier.id ? supplier : s))
+        : [supplier, ...suppliers];
       setSuppliers(next);
       localStore.saveSuppliers(next);
     }
     if (userProfile && isOnline) {
       await saveSupplierCloud(empresa.id, supplier);
     }
-    notify('Proveedor guardado', 'success');
+    notify(exists ? 'Proveedor actualizado' : 'Proveedor guardado', 'success');
   };
 
   const handleCreateEmployee = async (payload: {
@@ -977,6 +1029,7 @@ export default function App() {
                 <PosView
                   products={products}
                   customers={customers}
+                  ivaRate={empresa.iva}
                   onCompleteSale={(p) => handleCompleteSale({...p, origen: 'POS'})}
                   onNotify={notify}
                 />
