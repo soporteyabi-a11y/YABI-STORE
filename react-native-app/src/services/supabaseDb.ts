@@ -2,6 +2,7 @@ import {supabaseRn} from '../config/supabase';
 import type {
   RnBanner,
   RnCustomer,
+  RnEmpresa,
   RnPaymentMethod,
   RnProduct,
   RnPurchase,
@@ -21,6 +22,20 @@ function getSb() {
     throw new Error('Supabase no configurado en Expo (.env EXPO_PUBLIC_SUPABASE_URL/ANON_KEY)');
   }
   return supabaseRn;
+}
+
+function mapEmpresa(row: Record<string, unknown>): RnEmpresa {
+  return {
+    id: String(row.id || 'EMP001'),
+    nombre: String(row.nombre || "DIGITAL YA'BI"),
+    nit: row.nit ? String(row.nit) : undefined,
+    ciudad: row.ciudad ? String(row.ciudad) : undefined,
+    telefono: row.telefono ? String(row.telefono) : undefined,
+    iva: row.iva !== null && row.iva !== undefined ? Number(row.iva) : 0,
+    plan: (row.plan as RnEmpresa['plan']) || 'Pro',
+    color: row.color ? String(row.color) : '#00C8FF',
+    activa: row.activa !== false,
+  };
 }
 
 function mapProduct(row: Record<string, unknown>): RnProduct {
@@ -175,7 +190,8 @@ export function subscribeEmpresaRealtimeSupabase(
 
   const hydrate = async () => {
     try {
-      const [prodRes, saleRes, purRes, custRes, supRes, banRes, tktRes] = await Promise.all([
+      const [empRes, prodRes, saleRes, purRes, custRes, supRes, banRes, tktRes] = await Promise.all([
+        sb.from('empresas').select('*').eq('id', empresaId).maybeSingle(),
         sb.from('productos').select('*').eq('empresa_id', empresaId),
         sb.from('ventas').select('*').eq('empresa_id', empresaId).order('fecha', {ascending: false}),
         sb.from('compras').select('*').eq('empresa_id', empresaId).order('fecha', {ascending: false}),
@@ -185,6 +201,7 @@ export function subscribeEmpresaRealtimeSupabase(
         sb.from('soporte').select('*').eq('empresa_id', empresaId).order('fecha', {ascending: false}),
       ]);
       if (disposed) return;
+      if (empRes.data && callbacks.onEmpresa) callbacks.onEmpresa(mapEmpresa(empRes.data));
       if (prodRes.data) callbacks.onProducts(prodRes.data.map(mapProduct));
       if (saleRes.data) callbacks.onSales(saleRes.data.map(mapSale));
       if (purRes.data) callbacks.onPurchases(purRes.data.map(mapPurchase));
@@ -201,6 +218,11 @@ export function subscribeEmpresaRealtimeSupabase(
 
   const channel = sb
     .channel(`yabi-rn-${empresaId}`)
+    .on(
+      'postgres_changes',
+      {event: '*', schema: 'public', table: 'empresas', filter: `id=eq.${empresaId}`},
+      () => hydrate()
+    )
     .on(
       'postgres_changes',
       {event: '*', schema: 'public', table: 'productos', filter: `empresa_id=eq.${empresaId}`},
@@ -242,6 +264,22 @@ export function subscribeEmpresaRealtimeSupabase(
     disposed = true;
     sb.removeChannel(channel);
   };
+}
+
+export async function saveEmpresaConfigSupabase(empresa: RnEmpresa): Promise<void> {
+  const sb = getSb();
+  const {error} = await sb.from('empresas').upsert({
+    id: empresa.id,
+    nombre: empresa.nombre,
+    nit: empresa.nit || null,
+    ciudad: empresa.ciudad || null,
+    telefono: empresa.telefono || null,
+    iva: Number(empresa.iva ?? 0),
+    plan: empresa.plan || 'Pro',
+    color: empresa.color || '#00C8FF',
+    activa: empresa.activa !== false,
+  });
+  if (error) throw error;
 }
 
 export async function updateStockSupabase(

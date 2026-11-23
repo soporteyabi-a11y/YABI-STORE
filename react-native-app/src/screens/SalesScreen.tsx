@@ -1,23 +1,32 @@
 import React, {useMemo, useState} from 'react';
 import {
+  Alert,
   FlatList,
   Modal,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import {Truck, X} from 'lucide-react-native';
-import {formatCOP, updateSale, type RnSale} from '../services/yabiDb';
+import {Share2, Truck, X} from 'lucide-react-native';
+import {
+  formatCOP,
+  formatReceiptText,
+  updateSale,
+  type RnEmpresa,
+  type RnSale,
+} from '../services/yabiDb';
 
 interface SalesScreenProps {
   empresaId: string;
+  empresa: RnEmpresa;
   sales: RnSale[];
 }
 
-export const SalesScreen: React.FC<SalesScreenProps> = ({empresaId, sales}) => {
+export const SalesScreen: React.FC<SalesScreenProps> = ({empresaId, empresa, sales}) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todas' | RnSale['estado']>('Todas');
   const [selected, setSelected] = useState<RnSale | null>(null);
@@ -57,8 +66,25 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({empresaId, sales}) => {
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSelected(null);
+    } catch (err) {
+      Alert.alert(
+        'Error al guardar',
+        err instanceof Error ? err.message : 'No fue posible actualizar la orden.'
+      );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleShareSale = async () => {
+    if (!selected) return;
+    try {
+      await Share.share({
+        message: formatReceiptText(selected, empresa),
+        title: `Comprobante ${selected.orden}`,
+      });
+    } catch {
+      // cancelled
     }
   };
 
@@ -169,9 +195,21 @@ export const SalesScreen: React.FC<SalesScreenProps> = ({empresaId, sales}) => {
               style={styles.input}
             />
 
-            <Pressable onPress={handleSave} disabled={saving} style={styles.saveBtn}>
-              <Text style={styles.saveText}>{saving ? 'Guardando...' : 'Guardar despacho'}</Text>
-            </Pressable>
+            <Text style={styles.regimeHint}>
+              {Number(empresa.iva ?? 0) > 0
+                ? `IVA incluido (${empresa.iva}%)`
+                : 'Régimen: No responsable de IVA (0%)'}
+            </Text>
+
+            <View style={{flexDirection: 'row', gap: 10, marginTop: 6}}>
+              <Pressable onPress={handleShareSale} style={styles.shareBtn}>
+                <Share2 color="#00C8FF" size={16} />
+                <Text style={styles.shareText}>Recibo</Text>
+              </Pressable>
+              <Pressable onPress={handleSave} disabled={saving} style={[styles.saveBtn, {flex: 2, marginTop: 0}]}>
+                <Text style={styles.saveText}>{saving ? 'Guardando...' : 'Guardar despacho'}</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -256,4 +294,18 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   saveText: {color: '#050A14', fontWeight: '800', fontSize: 15},
+  shareBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,200,255,0.4)',
+    backgroundColor: '#0D1E35',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  shareText: {color: '#00C8FF', fontWeight: '700', fontSize: 13},
+  regimeHint: {color: '#34D399', fontSize: 11, fontWeight: '600'},
 });

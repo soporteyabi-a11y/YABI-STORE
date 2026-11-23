@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, {useRef, useState} from 'react';
+import {Alert, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
 import {CameraView, useCameraPermissions} from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import {Camera, Plus, X} from 'lucide-react-native';
@@ -26,6 +26,7 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
   const [stockInit, setStockInit] = useState('10');
   const [saving, setSaving] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const scanLockRef = useRef(false);
 
   const filtered = products.filter(
     (p) =>
@@ -35,16 +36,28 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
 
   const openBarcodeScanner = async () => {
     if (!permission?.granted) {
-      await requestPermission();
+      const res = await requestPermission();
+      if (!res.granted) {
+        Alert.alert('Permiso requerido', 'Activa el permiso de cámara para escanear códigos.');
+        return;
+      }
     }
+    scanLockRef.current = false;
     setScannerOpen(true);
   };
 
   const adjust = async (item: RnProduct, delta: number) => {
-    const next = Math.max(0, item.stock + delta);
-    await updateStock(empresaId, item.id, next);
-    Haptics.selectionAsync();
-    await onRefresh();
+    try {
+      const next = Math.max(0, item.stock + delta);
+      await updateStock(empresaId, item.id, next);
+      Haptics.selectionAsync();
+      await onRefresh();
+    } catch (err) {
+      Alert.alert(
+        'Error de inventario',
+        err instanceof Error ? err.message : 'No se pudo actualizar el stock.'
+      );
+    }
   };
 
   const handleCreateProduct = async () => {
@@ -70,6 +83,11 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
       setPrecio('');
       setStockInit('10');
       setCreateOpen(false);
+    } catch (err) {
+      Alert.alert(
+        'Error al crear producto',
+        err instanceof Error ? err.message : 'No se pudo guardar el producto.'
+      );
     } finally {
       setSaving(false);
     }
@@ -125,6 +143,8 @@ export const InventoryScreen: React.FC<InventoryScreenProps> = ({
           <CameraView
             style={{flex: 1}}
             onBarcodeScanned={({data}) => {
+              if (scanLockRef.current) return;
+              scanLockRef.current = true;
               setSearch(data);
               setScannerOpen(false);
             }}

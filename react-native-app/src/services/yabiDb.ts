@@ -20,6 +20,7 @@ import {
   resolveEmpresaIdSupabase,
   saveBannerSupabase,
   saveCustomerSupabase,
+  saveEmpresaConfigSupabase,
   saveProductSupabase,
   savePurchaseSupabase,
   saveSupplierSupabase,
@@ -30,6 +31,18 @@ import {
   updateStockSupabase,
   type RnAuthUser,
 } from './supabaseDb';
+
+export interface RnEmpresa {
+  id: string;
+  nombre: string;
+  nit?: string;
+  ciudad?: string;
+  telefono?: string;
+  iva?: number;
+  plan?: 'Starter' | 'Pro' | 'Enterprise';
+  color?: string;
+  activa?: boolean;
+}
 
 export type RnPaymentMethod = 'Efectivo' | 'Nequi' | 'Tarjeta' | 'Wompi' | 'PSE';
 
@@ -126,6 +139,7 @@ export interface RnTicket {
 }
 
 export interface RnRealtimeCallbacks {
+  onEmpresa?: (empresa: RnEmpresa) => void;
   onProducts: (items: RnProduct[]) => void;
   onSales: (items: RnSale[]) => void;
   onPurchases: (items: RnPurchase[]) => void;
@@ -168,6 +182,40 @@ export function formatCOP(value: number): string {
   return '$' + Math.round(value || 0).toLocaleString('es-CO');
 }
 
+export function formatReceiptText(
+  sale: RnSale,
+  empresa: RnEmpresa,
+  cashReceived?: number
+): string {
+  const ivaPct = Number(empresa.iva ?? 0);
+  const baseGravable = ivaPct > 0 ? Math.round(sale.total / (1 + ivaPct / 100)) : sale.total;
+  const ivaValor = ivaPct > 0 ? Math.max(0, sale.total - baseGravable) : 0;
+  const change = cashReceived && cashReceived > sale.total ? cashReceived - sale.total : 0;
+
+  return [
+    empresa.nombre,
+    empresa.nit ? `NIT: ${empresa.nit}` : '',
+    empresa.ciudad ? empresa.ciudad : '',
+    `Comprobante ${sale.orden} · ${sale.fecha} ${sale.hora || ''}`,
+    `Canal: ${sale.origen || 'POS'}`,
+    `Cliente: ${sale.cliente}`,
+    `Pago: ${sale.pago} (${sale.estado})`,
+    sale.notas ? `Entrega: ${sale.notas}` : '',
+    sale.transportadora ? `Envío: ${sale.transportadora}${sale.guia ? ` · Guía ${sale.guia}` : ''}` : '',
+    '----------------------------',
+    `${sale.qty}x ${sale.producto} — ${formatCOP(sale.total + (sale.desc || 0))}`,
+    '----------------------------',
+    sale.desc > 0 ? `Descuento: -${formatCOP(sale.desc)}` : '',
+    ...(ivaPct > 0
+      ? [`Base gravable: ${formatCOP(baseGravable)}`, `IVA (${ivaPct}%): ${formatCOP(ivaValor)}`]
+      : ['Régimen: No responsable de IVA']),
+    `TOTAL PAGADO: ${formatCOP(sale.total)}`,
+    change > 0 ? `Efectivo: ${formatCOP(cashReceived || 0)} · Cambio: ${formatCOP(change)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export async function resolveEmpresaId(uid: string): Promise<string> {
   if (isRnSupabaseConfigured) {
     return resolveEmpresaIdSupabase(uid);
@@ -187,6 +235,28 @@ export function subscribeEmpresaRealtime(
   }
 
   const unsubs: Unsubscribe[] = [];
+
+  if (callbacks.onEmpresa) {
+    const onEmp = callbacks.onEmpresa;
+    unsubs.push(
+      onSnapshot(doc(db, 'empresas', empresaId), (snap) => {
+        if (snap.exists()) {
+          const d = snap.data() as Record<string, unknown>;
+          onEmp({
+            id: snap.id,
+            nombre: String(d.nombre || "DIGITAL YA'BI"),
+            nit: d.nit ? String(d.nit) : undefined,
+            ciudad: d.ciudad ? String(d.ciudad) : undefined,
+            telefono: d.telefono ? String(d.telefono) : undefined,
+            iva: d.iva !== null && d.iva !== undefined ? Number(d.iva) : 0,
+            plan: (d.plan as RnEmpresa['plan']) || 'Pro',
+            color: d.color ? String(d.color) : '#00C8FF',
+            activa: d.activa !== false,
+          });
+        }
+      })
+    );
+  }
 
   unsubs.push(
     onSnapshot(collection(db, 'empresas', empresaId, 'productos'), (snap) => {
@@ -362,4 +432,13 @@ export async function deleteBanner(empresaId: string, bannerId: string): Promise
 export async function saveTicket(ticket: RnTicket): Promise<void> {
   if (isRnSupabaseConfigured) return saveTicketSupabase(ticket);
   await setDoc(doc(db, 'soporte', ticket.id), ticket, {merge: true});
+}
+
+export async function saveEmpresaConfig(empresa: RnEmpresa): Promise<void> {
+  if (isRnSupabaseConfigured) return saveEmpresaConfigSupabase(empresa);
+  await setDoc(
+    doc(db, 'empresas', empresa.id),
+    {...empresa, iva: Number(empresa.iva ?? 0)},
+    {merge: true}
+  );
 }

@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -14,6 +15,7 @@ import {StatusBar} from 'expo-status-bar';
 import {
   ArrowLeft,
   BarChart3,
+  Building2,
   Calculator,
   Headphones,
   Image as ImageIcon,
@@ -31,6 +33,7 @@ import {
   subscribeEmpresaRealtime,
   type RnBanner,
   type RnCustomer,
+  type RnEmpresa,
   type RnProduct,
   type RnPurchase,
   type RnSale,
@@ -45,10 +48,20 @@ import {PurchasesScreen} from './src/screens/PurchasesScreen';
 import {CustomersScreen} from './src/screens/CustomersScreen';
 import {BannersScreen} from './src/screens/BannersScreen';
 import {SupportScreen} from './src/screens/SupportScreen';
+import {CompanySettingsScreen} from './src/screens/CompanySettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
-type MoreModule = 'menu' | 'purchases' | 'customers' | 'banners' | 'support';
+type MoreModule = 'menu' | 'purchases' | 'customers' | 'banners' | 'support' | 'settings';
+
+const DEFAULT_RN_EMPRESA: RnEmpresa = {
+  id: 'EMP001',
+  nombre: "DIGITAL YA'BI",
+  iva: 0,
+  plan: 'Pro',
+  color: '#00C8FF',
+  activa: true,
+};
 
 const YabiNavTheme = {
   ...DarkTheme,
@@ -64,6 +77,7 @@ const YabiNavTheme = {
 
 export default function App() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [empresa, setEmpresa] = useState<RnEmpresa>(DEFAULT_RN_EMPRESA);
   const [userEmail, setUserEmail] = useState('');
   const [products, setProducts] = useState<RnProduct[]>([]);
   const [sales, setSales] = useState<RnSale[]>([]);
@@ -76,6 +90,7 @@ export default function App() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loggingIn, setLoggingIn] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -89,7 +104,9 @@ export default function App() {
         setUserEmail(user.email || '');
         const empId = await resolveEmpresaId(user.uid);
         setEmpresaId(empId);
+        setEmpresa((prev) => ({...prev, id: empId}));
         unsubCloud = subscribeEmpresaRealtime(empId, {
+          onEmpresa: setEmpresa,
           onProducts: setProducts,
           onSales: setSales,
           onPurchases: setPurchases,
@@ -100,6 +117,7 @@ export default function App() {
         });
       } else {
         setEmpresaId(null);
+        setEmpresa(DEFAULT_RN_EMPRESA);
         setUserEmail('');
         setProducts([]);
         setSales([]);
@@ -118,11 +136,23 @@ export default function App() {
   }, []);
 
   const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      setError('Ingresa tu correo y contraseña.');
+      return;
+    }
+    setLoggingIn(true);
     try {
       setError('');
       await rnAuth.login(email.trim(), password);
-    } catch {
-      setError('Credenciales inválidas en YA’BI Store');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      setError(
+        msg.toLowerCase().includes('invalid')
+          ? 'Correo o contraseña incorrectos en YA’BI Store.'
+          : msg || 'No fue posible iniciar sesión en YA’BI Store.'
+      );
+    } finally {
+      setLoggingIn(false);
     }
   };
 
@@ -153,8 +183,12 @@ export default function App() {
           secureTextEntry
           style={styles.input}
         />
-        <Pressable onPress={handleLogin} style={styles.loginBtn}>
-          <Text style={styles.loginText}>Ingresar</Text>
+        <Pressable onPress={handleLogin} disabled={loggingIn} style={styles.loginBtn}>
+          {loggingIn ? (
+            <ActivityIndicator color="#050A14" />
+          ) : (
+            <Text style={styles.loginText}>Ingresar</Text>
+          )}
         </Pressable>
       </SafeAreaView>
     );
@@ -210,12 +244,27 @@ export default function App() {
         </View>
       );
     }
+    if (moreModule === 'settings') {
+      return (
+        <View style={{flex: 1, backgroundColor: '#050A14'}}>
+          <Pressable onPress={() => setMoreModule('menu')} style={styles.backHeader}>
+            <ArrowLeft color="#00C8FF" size={18} />
+            <Text style={styles.backText}>Volver a Módulos · Datos Fiscales</Text>
+          </Pressable>
+          <CompanySettingsScreen empresa={empresa} onSaved={setEmpresa} />
+        </View>
+      );
+    }
+
+    const ivaPct = Number(empresa.iva ?? 0);
 
     return (
-      <ScrollView style={styles.moreContainer} contentContainerStyle={{gap: 12}}>
+      <ScrollView style={styles.moreContainer} contentContainerStyle={{gap: 12, paddingBottom: 28}}>
         <View style={styles.empBadge}>
+          <Text style={styles.empName}>{empresa.nombre}</Text>
           <Text style={styles.empCode}>
-            Empresa {empresaId} · {rnActiveBackend === 'supabase' ? 'Supabase' : 'Firebase'}
+            {empresaId} · {rnActiveBackend === 'supabase' ? 'Supabase' : 'Firebase'} ·{' '}
+            {ivaPct > 0 ? `IVA ${ivaPct}%` : 'No responsable de IVA'}
           </Text>
           <Text style={styles.empEmail}>{userEmail}</Text>
         </View>
@@ -245,6 +294,17 @@ export default function App() {
             <Headphones color="#00C8FF" size={22} />
             <Text style={styles.moduleTitle}>Soporte</Text>
             <Text style={styles.moduleSub}>{tickets.length} tickets</Text>
+          </Pressable>
+
+          <Pressable onPress={() => setMoreModule('settings')} style={styles.moduleCardFull}>
+            <Building2 color="#00C8FF" size={22} />
+            <View style={{flex: 1}}>
+              <Text style={styles.moduleTitle}>Datos Fiscales y Empresa</Text>
+              <Text style={styles.moduleSub}>
+                {empresa.nit ? `NIT ${empresa.nit} · ` : ''}
+                {ivaPct > 0 ? `Responsable IVA (${ivaPct}%)` : 'No responsable de IVA (0%)'}
+              </Text>
+            </View>
           </Pressable>
         </View>
 
@@ -283,6 +343,7 @@ export default function App() {
           {() => (
             <PosScreen
               empresaId={empresaId}
+              empresa={empresa}
               products={products}
               customers={customers}
               onRefresh={async () => {}}
@@ -294,7 +355,7 @@ export default function App() {
           name="Ventas"
           options={{tabBarIcon: ({color, size}) => <Receipt color={color} size={size} />}}
         >
-          {() => <SalesScreen empresaId={empresaId} sales={sales} />}
+          {() => <SalesScreen empresaId={empresaId} empresa={empresa} sales={sales} />}
         </Tab.Screen>
 
         <Tab.Screen
@@ -362,7 +423,8 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 2,
   },
-  empCode: {color: '#00C8FF', fontSize: 13, fontWeight: '700'},
+  empName: {color: '#F8FAFC', fontSize: 16, fontWeight: '800'},
+  empCode: {color: '#00C8FF', fontSize: 12, fontWeight: '700'},
   empEmail: {color: '#94A3B8', fontSize: 12},
   grid: {flexDirection: 'row', flexWrap: 'wrap', gap: 10},
   moduleCard: {
@@ -373,6 +435,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 6,
+  },
+  moduleCardFull: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#0B1525',
+    borderWidth: 1,
+    borderColor: 'rgba(0,200,255,0.22)',
+    borderRadius: 16,
+    padding: 16,
   },
   moduleTitle: {color: '#F8FAFC', fontSize: 15, fontWeight: '700', marginTop: 4},
   moduleSub: {color: '#94A3B8', fontSize: 12},

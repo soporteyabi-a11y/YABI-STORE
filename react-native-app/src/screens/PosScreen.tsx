@@ -1,9 +1,11 @@
-import React, {useMemo, useState} from 'react';
+import React, {useMemo, useRef, useState} from 'react';
 import {
+  Alert,
   FlatList,
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -11,11 +13,13 @@ import {
 } from 'react-native';
 import {CameraView, useCameraPermissions} from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import {Camera, Minus, Plus, Trash2, X} from 'lucide-react-native';
+import {Camera, Check, Minus, Plus, Share2, Trash2, X} from 'lucide-react-native';
 import {
   commitSale,
   formatCOP,
+  formatReceiptText,
   type RnCustomer,
+  type RnEmpresa,
   type RnPaymentMethod,
   type RnProduct,
   type RnSale,
@@ -23,6 +27,7 @@ import {
 
 interface PosScreenProps {
   empresaId: string;
+  empresa: RnEmpresa;
   products: RnProduct[];
   customers: RnCustomer[];
   onRefresh: () => Promise<void>;
@@ -30,6 +35,7 @@ interface PosScreenProps {
 
 export const PosScreen: React.FC<PosScreenProps> = ({
   empresaId,
+  empresa,
   products,
   customers,
   onRefresh,
@@ -38,12 +44,16 @@ export const PosScreen: React.FC<PosScreenProps> = ({
   const [cart, setCart] = useState<{product: RnProduct; qty: number}[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<RnPaymentMethod>('Efectivo');
   const [selectedCustomer, setSelectedCustomer] = useState('Mostrador / Cliente General');
+  const [discountInput, setDiscountInput] = useState('');
+  const [cashInput, setCashInput] = useState('');
   const [notes, setNotes] = useState('');
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanHint, setScanHint] = useState('');
   const [saving, setSaving] = useState(false);
+  const [receiptSale, setReceiptSale] = useState<{sale: RnSale; cashReceived?: number} | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const scanLockRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -54,10 +64,17 @@ export const PosScreen: React.FC<PosScreenProps> = ({
     );
   }, [products, search]);
 
-  const total = useMemo(
+  const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.product.precio * item.qty, 0),
     [cart]
   );
+  const discount = Math.min(subtotal, Math.max(0, Number(discountInput) || 0));
+  const total = Math.max(0, subtotal - discount);
+  const ivaRate = Number(empresa.iva ?? 0);
+  const baseGravable = ivaRate > 0 ? Math.round(total / (1 + ivaRate / 100)) : total;
+  const ivaValor = ivaRate > 0 ? Math.max(0, total - baseGravable) : 0;
+  const cashReceived = Number(cashInput) || 0;
+  const change = paymentMethod === 'Efectivo' && cashReceived > total ? cashReceived - total : 0;
 
   const addItem = (product: RnProduct) => {
     if (product.stock <= 0) return;
@@ -87,13 +104,20 @@ export const PosScreen: React.FC<PosScreenProps> = ({
 
   const openScanner = async () => {
     if (!permission?.granted) {
-      await requestPermission();
+      const res = await requestPermission();
+      if (!res.granted) {
+        Alert.alert('Permiso requerido', 'Activa el permiso de cámara para escanear códigos SKU o QR.');
+        return;
+      }
     }
+    scanLockRef.current = false;
     setScanHint('');
     setScannerOpen(true);
   };
 
   const handleBarcodeScanned = (raw: string) => {
+    if (scanLockRef.current) return;
+    scanLockRef.current = true;
     const code = raw.trim().toLowerCase();
     setScannerOpen(false);
     const match = products.find(
@@ -128,7 +152,7 @@ export const PosScreen: React.FC<PosScreenProps> = ({
             : `${cart[0].product.nombre} (+${cart.length - 1})`,
         precio: cart[0].product.precio,
         qty: cart.reduce((s, i) => s + i.qty, 0),
-        desc: 0,
+        desc: discount,
         total,
         pago: paymentMethod,
         fecha: now.toISOString().slice(0, 10),
@@ -143,13 +167,34 @@ export const PosScreen: React.FC<PosScreenProps> = ({
       }));
       await commitSale(empresaId, sale, stockUpdates);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const paidCash = paymentMethod === 'Efectivo' && cashReceived > 0 ? cashReceived : undefined;
       setCart([]);
       setNotes('');
+      setDiscountInput('');
+      setCashInput('');
       setScanHint('');
       setCheckoutOpen(false);
+      setReceiptSale({sale, cashReceived: paidCash});
       await onRefresh();
+    } catch (err) {
+      Alert.alert(
+        'Error al registrar venta',
+        err instanceof Error ? err.message : 'Verifica tu conexión e intenta nuevamente.'
+      );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleShareReceipt = async () => {
+    if (!receiptSale) return;
+    try {
+      await Share.share({
+        message: formatReceiptText(receiptSale.sale, empresa, receiptSale.cashReceived),
+        title: `Comprobante ${receiptSale.sale.orden}`,
+      });
+    } catch {
+      // user cancelled share sheet
     }
   };
 
@@ -223,7 +268,7 @@ export const PosScreen: React.FC<PosScreenProps> = ({
               </Pressable>
             </View>
 
-            <ScrollView style={{maxHeight: 160}} contentContainerStyle={{gap: 8}}>
+            <ScrollView style={{maxHeight: 150}} contentContainerStyle={{gap: 8}}>
               {cart.map((item) => (
                 <View key={item.product.id} style={styles.cartItem}>
                   <View style={{flex: 1}}>
@@ -256,28 +301,47 @@ export const PosScreen: React.FC<PosScreenProps> = ({
             <View>
               <Text style={styles.label}>Cliente</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 8}}>
-                {['Mostrador / Cliente General', ...customers.filter((c) => c.estado === 'Activo').map((c) => c.nombre)].map(
-                  (cName) => (
-                    <Pressable
-                      key={cName}
-                      onPress={() => setSelectedCustomer(cName)}
+                {[
+                  'Mostrador / Cliente General',
+                  ...customers.filter((c) => c.estado === 'Activo').map((c) => c.nombre),
+                ].map((cName) => (
+                  <Pressable
+                    key={cName}
+                    onPress={() => setSelectedCustomer(cName)}
+                    style={[styles.chip, selectedCustomer === cName && styles.chipActive]}
+                  >
+                    <Text
                       style={[
-                        styles.chip,
-                        selectedCustomer === cName && styles.chipActive,
+                        styles.chipText,
+                        selectedCustomer === cName && styles.chipTextActive,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          selectedCustomer === cName && styles.chipTextActive,
-                        ]}
-                      >
-                        {cName}
-                      </Text>
-                    </Pressable>
-                  )
-                )}
+                      {cName}
+                    </Text>
+                  </Pressable>
+                ))}
               </ScrollView>
+            </View>
+
+            <View style={{flexDirection: 'row', gap: 10}}>
+              <TextInput
+                value={discountInput}
+                onChangeText={setDiscountInput}
+                placeholder="Descuento ($)"
+                placeholderTextColor="#64748B"
+                keyboardType="numeric"
+                style={[styles.noteInput, {flex: 1}]}
+              />
+              {paymentMethod === 'Efectivo' && (
+                <TextInput
+                  value={cashInput}
+                  onChangeText={setCashInput}
+                  placeholder="Efectivo recibido"
+                  placeholderTextColor="#64748B"
+                  keyboardType="numeric"
+                  style={[styles.noteInput, {flex: 1}]}
+                />
+              )}
             </View>
 
             <TextInput
@@ -307,6 +371,25 @@ export const PosScreen: React.FC<PosScreenProps> = ({
               ))}
             </View>
 
+            <View style={styles.taxSummary}>
+              <View style={styles.taxRow}>
+                <Text style={styles.taxLabel}>
+                  {ivaRate > 0 ? `IVA incluido (${ivaRate}%)` : 'Régimen fiscal'}
+                </Text>
+                <Text style={[styles.taxVal, ivaRate <= 0 && {color: '#34D399'}]}>
+                  {ivaRate > 0
+                    ? `Base ${formatCOP(baseGravable)} · IVA ${formatCOP(ivaValor)}`
+                    : 'No responsable de IVA (0%)'}
+                </Text>
+              </View>
+              {change > 0 && (
+                <View style={styles.taxRow}>
+                  <Text style={styles.taxLabel}>Cambio a devolver</Text>
+                  <Text style={styles.taxVal}>{formatCOP(change)}</Text>
+                </View>
+              )}
+            </View>
+
             <View style={styles.sheetActions}>
               <Pressable onPress={() => setCart([])} style={styles.clearBtn}>
                 <Trash2 color="#F87171" size={16} />
@@ -318,6 +401,66 @@ export const PosScreen: React.FC<PosScreenProps> = ({
                 <Text style={styles.confirmText}>
                   {saving ? 'Registrando...' : 'Confirmar cobro'}
                 </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Receipt Modal after Checkout */}
+      <Modal visible={!!receiptSale} animationType="fade" transparent>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHeader}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                <Check color="#34D399" size={20} />
+                <Text style={styles.sheetTitle}>
+                  Comprobante {receiptSale?.sale.orden}
+                </Text>
+              </View>
+              <Pressable onPress={() => setReceiptSale(null)}>
+                <X color="#94A3B8" size={20} />
+              </Pressable>
+            </View>
+
+            {receiptSale && (
+              <View style={styles.receiptBox}>
+                <Text style={styles.receiptCompany}>{empresa.nombre}</Text>
+                {!!empresa.nit && <Text style={styles.receiptLine}>NIT {empresa.nit}</Text>}
+                <Text style={styles.receiptLine}>
+                  {receiptSale.sale.fecha} {receiptSale.sale.hora || ''} · {receiptSale.sale.pago}
+                </Text>
+                <Text style={styles.receiptLine}>Cliente: {receiptSale.sale.cliente}</Text>
+                <View style={styles.receiptDivider} />
+                <Text style={styles.receiptItem}>
+                  {receiptSale.sale.qty}x {receiptSale.sale.producto}
+                </Text>
+                <View style={styles.receiptDivider} />
+                <Text style={styles.receiptLine}>
+                  {ivaRate > 0
+                    ? `Base ${formatCOP(
+                        Math.round(receiptSale.sale.total / (1 + ivaRate / 100))
+                      )} · IVA (${ivaRate}%)`
+                    : 'Régimen: No responsable de IVA'}
+                </Text>
+                <Text style={styles.receiptTotal}>
+                  TOTAL PAGADO: {formatCOP(receiptSale.sale.total)}
+                </Text>
+                {receiptSale.cashReceived && receiptSale.cashReceived > receiptSale.sale.total ? (
+                  <Text style={[styles.receiptLine, {color: '#34D399'}]}>
+                    Cambio: {formatCOP(receiptSale.cashReceived - receiptSale.sale.total)}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
+            <View style={styles.sheetActions}>
+              <Pressable onPress={handleShareReceipt} style={styles.shareBtn}>
+                <Share2 color="#00C8FF" size={16} />
+                <Text style={styles.shareText}>Compartir recibo</Text>
+              </Pressable>
+              <Pressable onPress={() => setReceiptSale(null)} style={styles.confirmBtn}>
+                <Text style={styles.confirmText}>Listo</Text>
               </Pressable>
             </View>
           </View>
@@ -425,7 +568,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: 'rgba(0,200,255,0.2)',
     padding: 20,
-    gap: 14,
+    gap: 12,
   },
   sheetHeader: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   sheetTitle: {
@@ -493,7 +636,17 @@ const styles = StyleSheet.create({
   methodActive: {backgroundColor: '#00C8FF', borderColor: '#00C8FF'},
   methodText: {color: '#94A3B8', fontSize: 12, fontWeight: '600'},
   methodTextActive: {color: '#050A14', fontWeight: '700'},
-  sheetActions: {flexDirection: 'row', gap: 10, marginTop: 4},
+  taxSummary: {
+    backgroundColor: '#050A14',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  taxRow: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
+  taxLabel: {color: '#94A3B8', fontSize: 11},
+  taxVal: {color: '#00C8FF', fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums']},
+  sheetActions: {flexDirection: 'row', gap: 10, marginTop: 2},
   clearBtn: {
     width: 48,
     height: 48,
@@ -522,6 +675,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   confirmText: {color: '#050A14', fontWeight: '800'},
+  shareBtn: {
+    flex: 2,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,200,255,0.4)',
+    backgroundColor: '#0D1E35',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  shareText: {color: '#00C8FF', fontWeight: '700', fontSize: 14},
+  receiptBox: {
+    backgroundColor: '#050A14',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 14,
+    gap: 4,
+  },
+  receiptCompany: {color: '#F8FAFC', fontSize: 15, fontWeight: '800'},
+  receiptLine: {color: '#94A3B8', fontSize: 12},
+  receiptItem: {color: '#E2E8F0', fontSize: 13, fontWeight: '600', paddingVertical: 4},
+  receiptDivider: {height: 1, backgroundColor: '#1E293B', marginVertical: 4},
+  receiptTotal: {
+    color: '#00C8FF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
   closeCam: {
     position: 'absolute',
     bottom: 40,
