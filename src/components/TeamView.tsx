@@ -70,7 +70,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
               ? activeBackend === 'supabase'
                 ? 'Conectado a Supabase Auth + API en Render (/api/employees).'
                 : 'Conectado a Cloud Functions (createEmployeeAccount / deleteUserAccount) en yabi-store.'
-              : 'En modo demo local. Inicia sesión como administrador para crear cuentas reales en la nube.'}
+              : 'Operando en almacenamiento local. Inicia sesión como administrador para crear y gestionar cuentas en la nube.'}
           </p>
         </div>
 

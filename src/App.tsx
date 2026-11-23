@@ -41,18 +41,6 @@ import {StorefrontView} from './components/StorefrontView';
 import {SubscriptionView} from './components/SubscriptionView';
 import {SupportView} from './components/SupportView';
 import {TeamView} from './components/TeamView';
-import {
-  DEMO_BANNERS,
-  DEMO_CUSTOMERS,
-  DEMO_EMAIL_LOGS,
-  DEMO_EMPLOYEES,
-  DEMO_EMPRESA,
-  DEMO_PRODUCTS,
-  DEMO_PURCHASES,
-  DEMO_SALES,
-  DEMO_SUPPLIERS,
-  DEMO_TICKETS,
-} from './data/demoSeed';
 import {useOnlineStatus, usePWAInstall} from './hooks/usePWAInstall';
 import {
   activeBackend,
@@ -557,7 +545,7 @@ export default function App() {
     const next = [localEmp, ...employees];
     setEmployees(next);
     localStore.saveEmployees(next);
-    notify('Empleado agregado en modo demo local', 'info');
+    notify('Empleado guardado en almacenamiento local', 'info');
   };
 
   const handleDeleteEmployee = async (uid: string) => {
@@ -580,7 +568,7 @@ export default function App() {
     const next = employees.filter((e) => e.uid !== uid);
     setEmployees(next);
     localStore.saveEmployees(next);
-    notify('Empleado eliminado en modo demo local', 'info');
+    notify('Empleado eliminado del almacenamiento local', 'info');
   };
 
   const handleSaveEmpresa = async (updated: EmpresaConfig) => {
@@ -706,21 +694,6 @@ export default function App() {
     notify('Ventas exportadas en CSV', 'success');
   };
 
-  const handleResetDemo = () => {
-    localStore.resetDemo();
-    setEmpresa(DEMO_EMPRESA);
-    setProducts(DEMO_PRODUCTS);
-    setCustomers(DEMO_CUSTOMERS);
-    setSuppliers(DEMO_SUPPLIERS);
-    setPurchases(DEMO_PURCHASES);
-    setBanners(DEMO_BANNERS);
-    setEmployees(DEMO_EMPLOYEES);
-    setSales(DEMO_SALES);
-    setTickets(DEMO_TICKETS);
-    setEmails(DEMO_EMAIL_LOGS);
-    notify('Datos de demostración restaurados', 'info');
-  };
-
   const getSidebarCount = (id: AppTab): number | null => {
     if (id === 'customers') return customers.length;
     if (id === 'inventory') return products.length;
@@ -775,7 +748,11 @@ export default function App() {
               {(empresa.plan || 'Pro').toUpperCase()}
             </span>
             <span className="text-[10px] text-slate-400 truncate">
-              {dataSource === 'firebase' ? 'Firebase Live' : 'Demo Local'}
+              {dataSource === 'firebase'
+                ? activeBackend === 'supabase'
+                  ? 'Supabase Live'
+                  : 'Firebase Live'
+                : 'Caja Local'}
             </span>
           </div>
         </div>
@@ -1085,9 +1062,8 @@ export default function App() {
                   onOpenAuth={() => setAuthModalOpen(true)}
                   onLogout={async () => {
                     await yabiAuth.logout();
-                    notify('Sesión cerrada. Volviendo a modo demo local.', 'info');
+                    notify('Sesión cerrada. Operando en almacenamiento local.', 'info');
                   }}
-                  onResetDemo={handleResetDemo}
                   onNotify={notify}
                 />
               )}

@@ -8,7 +8,6 @@ import {
   LogOut,
   Monitor,
   Moon,
-  RefreshCw,
   Smartphone,
   Sun,
 } from 'lucide-react';
@@ -48,7 +47,6 @@ interface MobileNativeHubViewProps {
   onSaveEmpresa: (empresa: EmpresaConfig) => Promise<void>;
   onOpenAuth: () => void;
   onLogout: () => Promise<void>;
-  onResetDemo: () => void;
   onNotify: (msg: string, tone?: 'success' | 'info' | 'error') => void;
 }
 
@@ -124,7 +122,6 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   onSaveEmpresa,
   onOpenAuth,
   onLogout,
-  onResetDemo,
   onNotify,
 }) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -229,7 +226,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               ? activeBackend === 'supabase'
                 ? 'Conectado a Supabase Realtime'
                 : 'Tiempo real onSnapshot'
-              : 'Modo Demo / Offline'}
+              : 'Almacenamiento Local (Sin sesión)'}
           </p>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             {userProfile ? userProfile.nombre : empresa.nombre}
@@ -237,7 +234,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {userProfile
               ? `${userProfile.email} · Rol ${userProfile.rol}`
-              : 'Trabajando en modo demostración local. Conecta tu cuenta de YA’BI Store para sincronizar en tiempo real.'}
+              : 'Operando en almacenamiento local del dispositivo. Inicia sesión con tu cuenta de YA’BI Store para sincronizar en la nube.'}
           </p>
         </div>
 
@@ -252,24 +249,14 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Cerrar sesión
             </button>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={onResetDemo}
-                className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#0E1A2E] flex items-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Reiniciar demo
-              </button>
-              <button
-                type="button"
-                onClick={onOpenAuth}
-                className="min-h-[44px] px-4 rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold flex items-center gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                Conectar cuenta
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="min-h-[44px] px-4 rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold flex items-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              Conectar cuenta
+            </button>
           )}
         </div>
       </div>

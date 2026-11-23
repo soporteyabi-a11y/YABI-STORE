@@ -138,7 +138,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({open, onClose, onSuccess, o
               onClick={onClose}
               className="flex-1 min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
             >
-              Seguir en Demo
+              Seguir en local
             </button>
             <button
               type="submit"
