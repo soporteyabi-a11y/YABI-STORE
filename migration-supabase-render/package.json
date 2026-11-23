@@ -2,6 +2,9 @@
   "name": "yabi-store-render-api",
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "start": "node server.mjs",
     "import": "node import_yabi_json.mjs"

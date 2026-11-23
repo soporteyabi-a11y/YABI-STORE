@@ -7,15 +7,18 @@ import 'dotenv/config';
 const app = express();
 const port = Number(process.env.PORT) || 4000;
 
-const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://localhost:3000,http://localhost:5173')
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGIN || 'http://localhost:3000,http://localhost:5173'
+)
   .split(',')
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      const normalizedOrigin = origin ? origin.replace(/\/+$/, '') : '';
+      if (!normalizedOrigin || allowedOrigins.includes(normalizedOrigin)) {
         callback(null, true);
         return;
       }
@@ -27,19 +30,28 @@ app.use(
 );
 app.use(express.json({limit: '1mb'}));
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
+const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const hasValidSupabaseUrl = /^https?:\/\/.+/i.test(supabaseUrl);
 
-const supabaseAdmin =
-  supabaseUrl && serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey, {
-        auth: {autoRefreshToken: false, persistSession: false},
-      })
-    : null;
+let supabaseAdmin = null;
+let supabaseInitError = null;
+
+if (hasValidSupabaseUrl && serviceRoleKey) {
+  try {
+    supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {autoRefreshToken: false, persistSession: false},
+    });
+  } catch (err) {
+    supabaseInitError = err instanceof Error ? err.message : 'Error inicializando Supabase';
+  }
+}
 
 async function requireAdminUser(req, res, next) {
   if (!supabaseAdmin) {
-    return res.status(503).json({error: 'Supabase no configurado en Render'});
+    return res.status(503).json({
+      error: supabaseInitError || 'Supabase no configurado en Render (revisa SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY)',
+    });
   }
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -62,11 +74,21 @@ async function requireAdminUser(req, res, next) {
   next();
 }
 
+app.get('/', (_req, res) => {
+  res.json({
+    ok: true,
+    service: 'yabi-store-render-api',
+    health: '/health',
+    supabaseConfigured: Boolean(supabaseAdmin),
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'yabi-store-render-api',
     supabaseConfigured: Boolean(supabaseAdmin),
+    ...(supabaseInitError ? {initError: supabaseInitError} : {}),
   });
 });
 
@@ -198,6 +220,6 @@ app.post('/api/wompi/signature', (req, res) => {
   res.json({signature});
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`YA'BI Store Render API escuchando en puerto ${port}`);
 });
