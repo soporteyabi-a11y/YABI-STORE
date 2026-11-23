@@ -54,8 +54,31 @@ interface MobileNativeHubViewProps {
 
 const RN_SNIPPETS: {id: string; title: string; path: string; code: string}[] = [
   {
+    id: 'supabase-rn',
+    title: 'Configuración Supabase Nativa (Expo + AsyncStorage)',
+    path: 'react-native-app/src/config/supabase.ts',
+    code: `import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+
+export const isRnSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+export const supabaseRn = isRnSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    })
+  : null;`,
+  },
+  {
     id: 'firebase',
-    title: 'Configuración Firebase Nativa (onSnapshot + AsyncStorage)',
+    title: 'Respaldo Firebase Nativa (onSnapshot + AsyncStorage)',
     path: 'react-native-app/src/config/firebase.ts',
     code: `import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
@@ -476,7 +499,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Proyecto nativo React Native (Expo) sincronizado en tiempo real
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Código fuente completo en <span className="font-mono">/react-native-app</span> con <span className="font-mono">onSnapshot</span> conectado a <span className="font-mono">yabi-store</span>: POS con escáner de cámara, Ventas/Guías, Inventario, Compras atómicas, Clientes/Proveedores, Banners, Reportes omnicanal y Soporte.
+              Código fuente completo en <span className="font-mono">/react-native-app</span> compatible con <strong>Supabase Realtime</strong> (<span className="font-mono">EXPO_PUBLIC_SUPABASE_URL</span>) y respaldo Firebase: POS con escáner de cámara, Ventas/Guías, Inventario, Compras atómicas, Clientes/Proveedores, Banners, Reportes omnicanal y Soporte.
             </p>
           </div>
         </div>

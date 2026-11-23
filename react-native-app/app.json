@@ -4,7 +4,15 @@
     "slug": "yabi-store",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite escanear códigos de barras y QR en el POS e Inventario de YA'BI Store."
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.yabistore.app"

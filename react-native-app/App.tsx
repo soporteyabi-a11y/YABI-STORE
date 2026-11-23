@@ -11,7 +11,6 @@ import {
 import {NavigationContainer, DarkTheme} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {StatusBar} from 'expo-status-bar';
-import {onAuthStateChanged, signInWithEmailAndPassword, signOut} from 'firebase/auth';
 import {
   ArrowLeft,
   BarChart3,
@@ -25,9 +24,10 @@ import {
   ShoppingCart,
   Users,
 } from 'lucide-react-native';
-import {auth} from './src/config/firebase';
 import {
   resolveEmpresaId,
+  rnActiveBackend,
+  rnAuth,
   subscribeEmpresaRealtime,
   type RnBanner,
   type RnCustomer,
@@ -79,17 +79,17 @@ export default function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let unsubFirestore: (() => void) | null = null;
-    const unsubAuth = onAuthStateChanged(auth, async (user) => {
-      if (unsubFirestore) {
-        unsubFirestore();
-        unsubFirestore = null;
+    let unsubCloud: (() => void) | null = null;
+    const unsubAuth = rnAuth.subscribe(async (user) => {
+      if (unsubCloud) {
+        unsubCloud();
+        unsubCloud = null;
       }
       if (user) {
         setUserEmail(user.email || '');
         const empId = await resolveEmpresaId(user.uid);
         setEmpresaId(empId);
-        unsubFirestore = subscribeEmpresaRealtime(empId, {
+        unsubCloud = subscribeEmpresaRealtime(empId, {
           onProducts: setProducts,
           onSales: setSales,
           onPurchases: setPurchases,
@@ -113,14 +113,14 @@ export default function App() {
     });
     return () => {
       unsubAuth();
-      if (unsubFirestore) unsubFirestore();
+      if (unsubCloud) unsubCloud();
     };
   }, []);
 
   const handleLogin = async () => {
     try {
       setError('');
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await rnAuth.login(email.trim(), password);
     } catch {
       setError('Credenciales inválidas en YA’BI Store');
     }
@@ -131,7 +131,10 @@ export default function App() {
       <SafeAreaView style={styles.authContainer}>
         <StatusBar style="light" />
         <Text style={styles.brand}>YA&apos;BI Store</Text>
-        <Text style={styles.sub}>POS &amp; Gestión Omnicanal Móvil (onSnapshot)</Text>
+        <Text style={styles.sub}>
+          POS &amp; Gestión Omnicanal Móvil (
+          {rnActiveBackend === 'supabase' ? 'Supabase Realtime' : 'Firebase onSnapshot'})
+        </Text>
         {!!error && <Text style={styles.error}>{error}</Text>}
         <TextInput
           value={email}
@@ -211,7 +214,9 @@ export default function App() {
     return (
       <ScrollView style={styles.moreContainer} contentContainerStyle={{gap: 12}}>
         <View style={styles.empBadge}>
-          <Text style={styles.empCode}>Empresa {empresaId}</Text>
+          <Text style={styles.empCode}>
+            Empresa {empresaId} · {rnActiveBackend === 'supabase' ? 'Supabase' : 'Firebase'}
+          </Text>
           <Text style={styles.empEmail}>{userEmail}</Text>
         </View>
 
@@ -243,7 +248,7 @@ export default function App() {
           </Pressable>
         </View>
 
-        <Pressable onPress={() => signOut(auth)} style={styles.logoutCard}>
+        <Pressable onPress={() => rnAuth.logout()} style={styles.logoutCard}>
           <LogOut color="#F87171" size={18} />
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </Pressable>
@@ -265,7 +270,7 @@ export default function App() {
           tabBarActiveTintColor: '#00C8FF',
           tabBarInactiveTintColor: '#94A3B8',
           headerRight: () => (
-            <Pressable onPress={() => signOut(auth)} style={{paddingRight: 14}}>
+            <Pressable onPress={() => rnAuth.logout()} style={{paddingRight: 14}}>
               <Text style={{color: '#94A3B8', fontSize: 12}}>Salir</Text>
             </Pressable>
           ),

@@ -1,3 +1,4 @@
+import {onAuthStateChanged, signInWithEmailAndPassword, signOut} from 'firebase/auth';
 import {
   collection,
   deleteDoc,
@@ -10,7 +11,25 @@ import {
   writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
-import {db} from '../config/firebase';
+import {auth, db} from '../config/firebase';
+import {isRnSupabaseConfigured} from '../config/supabase';
+import {
+  commitSaleSupabase,
+  deleteBannerSupabase,
+  receivePurchaseSupabase,
+  resolveEmpresaIdSupabase,
+  saveBannerSupabase,
+  saveCustomerSupabase,
+  saveProductSupabase,
+  savePurchaseSupabase,
+  saveSupplierSupabase,
+  saveTicketSupabase,
+  subscribeEmpresaRealtimeSupabase,
+  supabaseRnAuth,
+  updateSaleSupabase,
+  updateStockSupabase,
+  type RnAuthUser,
+} from './supabaseDb';
 
 export type RnPaymentMethod = 'Efectivo' | 'Nequi' | 'Tarjeta' | 'Wompi' | 'PSE';
 
@@ -116,11 +135,43 @@ export interface RnRealtimeCallbacks {
   onTickets: (items: RnTicket[]) => void;
 }
 
+export const rnActiveBackend: 'supabase' | 'firebase' = isRnSupabaseConfigured
+  ? 'supabase'
+  : 'firebase';
+
+export const rnAuth = {
+  subscribe: (cb: (user: RnAuthUser | null) => void): (() => void) => {
+    if (isRnSupabaseConfigured) {
+      return supabaseRnAuth.subscribe(cb);
+    }
+    return onAuthStateChanged(auth, (fbUser) => {
+      cb(fbUser ? {uid: fbUser.uid, email: fbUser.email || ''} : null);
+    });
+  },
+  login: async (email: string, password: string): Promise<void> => {
+    if (isRnSupabaseConfigured) {
+      await supabaseRnAuth.login(email, password);
+      return;
+    }
+    await signInWithEmailAndPassword(auth, email.trim(), password);
+  },
+  logout: async (): Promise<void> => {
+    if (isRnSupabaseConfigured) {
+      await supabaseRnAuth.logout();
+      return;
+    }
+    await signOut(auth);
+  },
+};
+
 export function formatCOP(value: number): string {
   return '$' + Math.round(value || 0).toLocaleString('es-CO');
 }
 
 export async function resolveEmpresaId(uid: string): Promise<string> {
+  if (isRnSupabaseConfigured) {
+    return resolveEmpresaIdSupabase(uid);
+  }
   const snap = await getDoc(doc(db, 'usuarios', uid));
   if (!snap.exists()) return 'EMP001';
   const emp = snap.data()?.empresaId;
@@ -131,6 +182,10 @@ export function subscribeEmpresaRealtime(
   empresaId: string,
   callbacks: RnRealtimeCallbacks
 ): () => void {
+  if (isRnSupabaseConfigured) {
+    return subscribeEmpresaRealtimeSupabase(empresaId, callbacks);
+  }
+
   const unsubs: Unsubscribe[] = [];
 
   unsubs.push(
@@ -220,10 +275,12 @@ export async function updateStock(
   productId: string,
   stock: number
 ): Promise<void> {
+  if (isRnSupabaseConfigured) return updateStockSupabase(empresaId, productId, stock);
   await setDoc(doc(db, 'empresas', empresaId, 'productos', productId), {stock}, {merge: true});
 }
 
 export async function saveProduct(empresaId: string, product: RnProduct): Promise<void> {
+  if (isRnSupabaseConfigured) return saveProductSupabase(empresaId, product);
   await setDoc(doc(db, 'empresas', empresaId, 'productos', product.id), product, {merge: true});
 }
 
@@ -232,6 +289,7 @@ export async function commitSale(
   sale: RnSale,
   stockUpdates: {id: string; stock: number}[]
 ): Promise<void> {
+  if (isRnSupabaseConfigured) return commitSaleSupabase(empresaId, sale, stockUpdates);
   const batch = writeBatch(db);
   batch.set(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale);
   for (const item of stockUpdates) {
@@ -249,10 +307,12 @@ export async function updateSale(
   saleId: string,
   patch: Partial<RnSale>
 ): Promise<void> {
+  if (isRnSupabaseConfigured) return updateSaleSupabase(empresaId, saleId, patch);
   await setDoc(doc(db, 'empresas', empresaId, 'ventas', saleId), patch, {merge: true});
 }
 
 export async function savePurchase(empresaId: string, purchase: RnPurchase): Promise<void> {
+  if (isRnSupabaseConfigured) return savePurchaseSupabase(empresaId, purchase);
   await setDoc(doc(db, 'empresas', empresaId, 'compras', purchase.id), purchase, {merge: true});
 }
 
@@ -262,6 +322,9 @@ export async function receivePurchase(
   productId: string,
   newStock: number
 ): Promise<void> {
+  if (isRnSupabaseConfigured) {
+    return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
+  }
   const batch = writeBatch(db);
   batch.set(
     doc(db, 'empresas', empresaId, 'compras', purchaseId),
@@ -277,21 +340,26 @@ export async function receivePurchase(
 }
 
 export async function saveCustomer(empresaId: string, customer: RnCustomer): Promise<void> {
+  if (isRnSupabaseConfigured) return saveCustomerSupabase(empresaId, customer);
   await setDoc(doc(db, 'empresas', empresaId, 'clientes', customer.id), customer, {merge: true});
 }
 
 export async function saveSupplier(empresaId: string, supplier: RnSupplier): Promise<void> {
+  if (isRnSupabaseConfigured) return saveSupplierSupabase(empresaId, supplier);
   await setDoc(doc(db, 'empresas', empresaId, 'proveedores', supplier.id), supplier, {merge: true});
 }
 
 export async function saveBanner(empresaId: string, banner: RnBanner): Promise<void> {
+  if (isRnSupabaseConfigured) return saveBannerSupabase(empresaId, banner);
   await setDoc(doc(db, 'empresas', empresaId, 'banners', banner.id), banner, {merge: true});
 }
 
 export async function deleteBanner(empresaId: string, bannerId: string): Promise<void> {
+  if (isRnSupabaseConfigured) return deleteBannerSupabase(empresaId, bannerId);
   await deleteDoc(doc(db, 'empresas', empresaId, 'banners', bannerId));
 }
 
 export async function saveTicket(ticket: RnTicket): Promise<void> {
+  if (isRnSupabaseConfigured) return saveTicketSupabase(ticket);
   await setDoc(doc(db, 'soporte', ticket.id), ticket, {merge: true});
 }
