@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS public.empresas (
   nit TEXT,
   ciudad TEXT,
   telefono TEXT,
-  iva NUMERIC(5,2) NOT NULL DEFAULT 19,
+  iva NUMERIC(5,2) NOT NULL DEFAULT 0,
   plan TEXT NOT NULL DEFAULT 'Pro',
   color TEXT DEFAULT '#00C8FF',
   activa BOOLEAN NOT NULL DEFAULT true,

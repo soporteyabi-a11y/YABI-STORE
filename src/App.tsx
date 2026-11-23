@@ -849,7 +849,7 @@ export default function App() {
               className="w-full min-h-[38px] px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#0B1525] flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5 text-[#00C8FF]" />
-              Conectar Firebase
+              {activeBackend === 'supabase' ? 'Conectar Supabase' : 'Conectar Firebase'}
             </button>
           )}
         </div>

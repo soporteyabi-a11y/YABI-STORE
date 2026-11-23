@@ -37,7 +37,7 @@ async function run() {
       nit: empresa.nit || null,
       ciudad: empresa.ciudad || null,
       telefono: empresa.telefono || null,
-      iva: Number(empresa.iva ?? 19),
+      iva: Number(empresa.iva ?? 0),
       plan: empresa.plan || 'Pro',
       color: empresa.color || '#00C8FF',
       activa: empresa.activa !== false,

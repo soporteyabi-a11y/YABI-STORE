@@ -390,13 +390,22 @@ export const PosView: React.FC<PosViewProps> = ({
               <span className="font-mono tabular-nums">-{formatCOP(discount)}</span>
             </div>
           )}
-          {ivaRate > 0 && total > 0 && (
-            <div className="flex justify-between text-slate-500 dark:text-slate-400 text-xs">
-              <span>IVA incluido ({ivaRate}%)</span>
-              <span className="font-mono tabular-nums">
-                Base {formatCOP(baseGravable)} · IVA {formatCOP(ivaValor)}
-              </span>
-            </div>
+          {total > 0 && (
+            ivaRate > 0 ? (
+              <div className="flex justify-between text-slate-500 dark:text-slate-400 text-xs">
+                <span>IVA incluido ({ivaRate}%)</span>
+                <span className="font-mono tabular-nums">
+                  Base {formatCOP(baseGravable)} · IVA {formatCOP(ivaValor)}
+                </span>
+              </div>
+            ) : (
+              <div className="flex justify-between text-slate-500 dark:text-slate-400 text-xs">
+                <span>Régimen fiscal</span>
+                <span className="font-medium text-emerald-600 dark:text-[#00E87C]">
+                  No responsable de IVA (0%)
+                </span>
+              </div>
+            )
           )}
           {paymentMethod === 'Efectivo' && change > 0 && (
             <div className="flex justify-between text-sky-600 dark:text-[#00C8FF] text-xs font-medium">

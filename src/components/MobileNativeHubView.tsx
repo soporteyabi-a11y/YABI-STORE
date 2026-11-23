@@ -411,16 +411,35 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              IVA (%) — 0 si no es responsable
+              Régimen fiscal (IVA)
             </label>
-            <input
-              type="number"
-              min={0}
-              max={30}
-              value={empForm.iva ?? 19}
-              onChange={(e) => setEmpForm({...empForm, iva: Number(e.target.value)})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-sm text-slate-900 dark:text-white"
-            />
+            <div className="flex gap-2">
+              <select
+                value={Number(empForm.iva ?? 0) > 0 ? 'responsable' : 'no_responsable'}
+                onChange={(e) => {
+                  const isResp = e.target.value === 'responsable';
+                  setEmpForm({
+                    ...empForm,
+                    iva: isResp ? (Number(empForm.iva) > 0 ? Number(empForm.iva) : 19) : 0,
+                  });
+                }}
+                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+              >
+                <option value="no_responsable">No responsable de IVA (0%)</option>
+                <option value="responsable">Responsable de IVA</option>
+              </select>
+              {Number(empForm.iva ?? 0) > 0 && (
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  aria-label="Porcentaje de IVA"
+                  value={empForm.iva ?? 19}
+                  onChange={(e) => setEmpForm({...empForm, iva: Math.max(0, Number(e.target.value))})}
+                  className="w-20 h-11 px-2.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-sm text-slate-900 dark:text-white text-center"
+                />
+              )}
+            </div>
           </div>
           <div className="flex items-end">
             <button

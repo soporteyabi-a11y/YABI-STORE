@@ -6,7 +6,7 @@
 3. Crea tu usuario administrador en **Authentication -> Users -> Add user** y vincula su `uid` en `public.usuarios`:
    ```sql
    INSERT INTO public.empresas (id, nombre, ciudad, iva, plan)
-   VALUES ('EMP001', 'YA''BI Store', 'Cali', 19, 'Pro')
+   VALUES ('EMP001', 'YA''BI Store', 'Cali', 0, 'Pro')
    ON CONFLICT (id) DO NOTHING;
 
    INSERT INTO public.usuarios (uid, empresa_id, nombre, email, rol)

@@ -72,7 +72,7 @@ export function buildFullSupabaseSql(params: {
     '-- ============================================================================',
     '',
     `INSERT INTO public.empresas (id, nombre, nit, ciudad, telefono, iva, plan, color, activa)`,
-    `VALUES (${sqlStrReq(empresaId, 'EMP001')}, ${sqlStrReq(empresa.nombre, "YA'BI Store")}, ${sqlStr(empresa.nit)}, ${sqlStr(empresa.ciudad)}, ${sqlStr(empresa.telefono)}, ${sqlNum(empresa.iva, 19)}, ${sqlStrReq(empresa.plan, 'Pro')}, ${sqlStrReq(empresa.color, '#00C8FF')}, ${sqlBool(empresa.activa !== false)})`,
+    `VALUES (${sqlStrReq(empresaId, 'EMP001')}, ${sqlStrReq(empresa.nombre, "YA'BI Store")}, ${sqlStr(empresa.nit)}, ${sqlStr(empresa.ciudad)}, ${sqlStr(empresa.telefono)}, ${sqlNum(empresa.iva, 0)}, ${sqlStrReq(empresa.plan, 'Pro')}, ${sqlStrReq(empresa.color, '#00C8FF')}, ${sqlBool(empresa.activa !== false)})`,
     `ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, nit = EXCLUDED.nit, ciudad = EXCLUDED.ciudad, telefono = EXCLUDED.telefono, iva = EXCLUDED.iva, plan = EXCLUDED.plan, color = EXCLUDED.color, activa = EXCLUDED.activa;`,
     '',
   ];

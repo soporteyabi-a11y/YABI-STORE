@@ -18,7 +18,7 @@ export const DEMO_EMPRESA: EmpresaConfig = {
   nit: '901.482.310-4',
   ciudad: 'Medellín, Antioquia',
   telefono: '+57 300 412 8890',
-  iva: 19,
+  iva: 0,
   plan: 'Pro',
   color: '#00C8FF',
   activa: true,

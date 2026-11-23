@@ -41,8 +41,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         : [`${sale.qty}x ${sale.producto} - ${formatCOP(sale.total)}`]),
       '----------------------------',
       sale.desc > 0 ? `Descuento: -${formatCOP(sale.desc)}` : '',
-      ivaPct > 0 ? `Base gravable: ${formatCOP(baseGravable)}` : '',
-      ivaPct > 0 ? `IVA (${ivaPct}%): ${formatCOP(ivaValor)}` : '',
+      ...(ivaPct > 0
+        ? [`Base gravable: ${formatCOP(baseGravable)}`, `IVA (${ivaPct}%): ${formatCOP(ivaValor)}`]
+        : ['Régimen: No responsable de IVA']),
       `TOTAL: ${formatCOP(sale.total)}`,
     ]
       .filter(Boolean)
@@ -160,7 +161,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   <span className="tabular-nums">-{formatCOP(sale.desc)}</span>
                 </div>
               )}
-              {ivaPct > 0 && (
+              {ivaPct > 0 ? (
                 <>
                   <div className="flex justify-between text-slate-500 dark:text-slate-400">
                     <span>Base gravable</span>
@@ -171,6 +172,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     <span className="tabular-nums">{formatCOP(ivaValor)}</span>
                   </div>
                 </>
+              ) : (
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                  <span>Régimen fiscal</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    No responsable de IVA
+                  </span>
+                </div>
               )}
               <div className="flex justify-between text-sm font-bold text-slate-900 dark:text-white pt-1">
                 <span>TOTAL PAGADO</span>
