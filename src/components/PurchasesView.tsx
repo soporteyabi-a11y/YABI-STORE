@@ -104,25 +104,25 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
     <div className="space-y-5 pb-24 lg:pb-8">
       {/* KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Órdenes registradas</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1">
             {metrics.totalCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Por recibir</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1">
             {metrics.pendingCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Recibidas en bodega</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1">
             {metrics.receivedCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Total en compras</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 truncate">
             {formatCOP(metrics.totalInvested)}
@@ -139,12 +139,12 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar orden, producto o proveedor…"
-            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white"
+            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm text-slate-900 dark:text-white"
           />
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2">
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-xl">
+          <div className="flex items-center p-1 bg-slate-100/70 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-xl">
             {(
               [
                 {id: 'all', label: 'Todas'},
@@ -158,7 +158,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
                 onClick={() => setStatusFilter(tab.id)}
                 className={`min-h-[36px] px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                   statusFilter === tab.id
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-white/90 dark:bg-[#0F1E34]/80 text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
@@ -179,7 +179,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
       </div>
 
       {/* Purchase Orders List */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-slate-500">
@@ -191,7 +191,7 @@ export const PurchasesView: React.FC<PurchasesViewProps> = ({
               return (
                 <div
                   key={c.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40"
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">

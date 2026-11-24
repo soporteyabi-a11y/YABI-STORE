@@ -78,7 +78,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     <div className="space-y-5 pb-24 lg:pb-8">
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Total facturado
           </p>
@@ -87,7 +87,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#00E87C] p-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#00E87C] p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Pagadas ({metrics.paidCount})
           </p>
@@ -96,7 +96,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-amber-400 p-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-amber-400 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Pendientes ({metrics.pendingCount})
           </p>
@@ -105,7 +105,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
           </p>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#FF4D6D] p-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#FF4D6D] p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Canceladas
           </p>
@@ -124,7 +124,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar orden, cliente, producto o guía…"
-            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-white dark:bg-[#0B1525] text-sm text-slate-900 dark:text-white"
+            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm text-slate-900 dark:text-white"
           />
         </div>
 
@@ -137,7 +137,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
               className={`min-h-[38px] px-3.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors border ${
                 statusFilter === st
                   ? 'bg-sky-600 dark:bg-[#00C8FF] border-transparent text-white dark:text-[#050A14] font-semibold'
-                  : 'bg-white dark:bg-[#0B1525] border-slate-200 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300'
+                  : 'bg-white/65 dark:bg-[#0B1525]/45 border-slate-200/80 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300'
               }`}
             >
               {st}
@@ -147,7 +147,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
       </div>
 
       {/* Orders Table */}
-      <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] overflow-hidden">
+      <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -171,7 +171,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                 </tr>
               ) : (
                 filtered.map((s) => (
-                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-[#0E1A2E]/50">
+                  <tr key={s.id} className="hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40">
                     <td className="px-4 py-3.5 font-mono font-semibold text-sky-600 dark:text-[#00C8FF] whitespace-nowrap">
                       {s.orden}
                       <p className="text-[11px] font-sans font-normal text-slate-400">

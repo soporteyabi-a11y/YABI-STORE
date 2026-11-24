@@ -35,6 +35,7 @@ async function run() {
       id: empresa.id,
       nombre: empresa.nombre,
       nit: empresa.nit || null,
+      direccion: empresa.direccion || null,
       ciudad: empresa.ciudad || null,
       telefono: empresa.telefono || null,
       iva: Number(empresa.iva ?? 0),

@@ -71,9 +71,9 @@ export function buildFullSupabaseSql(params: {
     `-- DATOS INICIALES YA'BI STORE (${empresaId}) — Generado para Supabase SQL Editor`,
     '-- ============================================================================',
     '',
-    `INSERT INTO public.empresas (id, nombre, nit, ciudad, telefono, iva, plan, color, activa)`,
-    `VALUES (${sqlStrReq(empresaId, 'EMP001')}, ${sqlStrReq(empresa.nombre, "YA'BI Store")}, ${sqlStr(empresa.nit)}, ${sqlStr(empresa.ciudad)}, ${sqlStr(empresa.telefono)}, ${sqlNum(empresa.iva, 0)}, ${sqlStrReq(empresa.plan, 'Pro')}, ${sqlStrReq(empresa.color, '#00C8FF')}, ${sqlBool(empresa.activa !== false)})`,
-    `ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, nit = EXCLUDED.nit, ciudad = EXCLUDED.ciudad, telefono = EXCLUDED.telefono, iva = EXCLUDED.iva, plan = EXCLUDED.plan, color = EXCLUDED.color, activa = EXCLUDED.activa;`,
+    `INSERT INTO public.empresas (id, nombre, nit, direccion, ciudad, telefono, iva, plan, color, activa)`,
+    `VALUES (${sqlStrReq(empresaId, 'EMP001')}, ${sqlStrReq(empresa.nombre, "YA'BI Store")}, ${sqlStr(empresa.nit)}, ${sqlStr(empresa.direccion)}, ${sqlStr(empresa.ciudad)}, ${sqlStr(empresa.telefono)}, ${sqlNum(empresa.iva, 0)}, ${sqlStrReq(empresa.plan, 'Pro')}, ${sqlStrReq(empresa.color, '#00C8FF')}, ${sqlBool(empresa.activa !== false)})`,
+    `ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, nit = EXCLUDED.nit, direccion = EXCLUDED.direccion, ciudad = EXCLUDED.ciudad, telefono = EXCLUDED.telefono, iva = EXCLUDED.iva, plan = EXCLUDED.plan, color = EXCLUDED.color, activa = EXCLUDED.activa;`,
     '',
   ];
 

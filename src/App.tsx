@@ -733,7 +733,7 @@ export default function App() {
         <circle cx="206" cy="214" r="3" fill="currentColor" fillOpacity="0.8" />
       </svg>
       {/* Desktop Left Sidebar (240px) */}
-      <aside className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 lg:left-0 z-30 border-r border-slate-200 dark:border-[#0D1E35] bg-white dark:bg-[#070E1A]">
+      <aside className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 lg:left-0 z-30 border-r border-slate-200/80 dark:border-[#0D1E35] bg-white/70 dark:bg-[#070E1A]/60">
         {/* Brand Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-[#0D1E35]">
           <div className="font-display text-xl font-extrabold tracking-tight whitespace-nowrap">
@@ -835,13 +835,13 @@ export default function App() {
       {/* Main Content Shell */}
       <div className="flex-1 lg:ml-60 flex flex-col min-w-0 relative z-10">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 h-14 px-4 sm:px-6 border-b border-slate-200 dark:border-[#0D1E35] bg-white/95 dark:bg-[#070E1A]/95 backdrop-blur-md flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-30 h-14 px-4 sm:px-6 border-b border-slate-200/80 dark:border-[#0D1E35] bg-white/75 dark:bg-[#070E1A]/65 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Abrir menú de módulos"
-              className="lg:hidden min-h-[36px] min-w-[36px] rounded-lg border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#0B1525] flex items-center justify-center text-slate-700 dark:text-slate-200"
+              className="lg:hidden min-h-[36px] min-w-[36px] rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/50 flex items-center justify-center text-slate-700 dark:text-slate-200"
             >
               <Menu className="w-4 h-4" />
             </button>
@@ -866,7 +866,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setScannerOpen(true)}
-              className="min-h-[36px] px-3 rounded-lg border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#0B1525] text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-[#00C8FF] inline-flex items-center gap-1.5"
+              className="min-h-[36px] px-3 rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/50 text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-[#00C8FF] inline-flex items-center gap-1.5"
             >
               <Camera className="w-3.5 h-3.5 text-[#00C8FF]" />
               <span className="hidden sm:inline">Escáner</span>
@@ -875,7 +875,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setEmailsOpen(true)}
-              className="min-h-[36px] px-3 rounded-lg border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#0B1525] text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-[#00C8FF] inline-flex items-center gap-1.5"
+              className="min-h-[36px] px-3 rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/50 text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-[#00C8FF] inline-flex items-center gap-1.5"
             >
               <Mail className="w-3.5 h-3.5 text-[#00C8FF]" />
               <span className="hidden sm:inline">Emails</span>
@@ -884,7 +884,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleExportActiveCSV}
-              className="min-h-[36px] px-3 rounded-lg border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#0B1525] text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-[#00C8FF] inline-flex items-center gap-1.5"
+              className="min-h-[36px] px-3 rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/50 text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-[#00C8FF] inline-flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5 text-[#00C8FF]" />
               <span className="hidden sm:inline">CSV</span>
@@ -905,7 +905,7 @@ export default function App() {
               type="button"
               onClick={() => setDarkMode((d) => !d)}
               aria-label={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-              className="min-h-[36px] min-w-[36px] rounded-lg border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#0B1525] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:border-[#00C8FF]"
+              className="min-h-[36px] min-w-[36px] rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/50 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:border-[#00C8FF]"
             >
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -927,12 +927,12 @@ export default function App() {
         <main className="flex-1 px-4 sm:px-6 py-5 max-w-[1440px] w-full mx-auto">
           {loading ? (
             <div className="space-y-4 py-6">
-              <div className="h-11 rounded-xl bg-slate-200/70 dark:bg-[#0B1525]" />
+              <div className="h-11 rounded-xl bg-slate-200/50 dark:bg-[#0B1525]/45" />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[1, 2, 3, 4].map((n) => (
                   <div
                     key={n}
-                    className="h-32 rounded-2xl bg-slate-200/70 dark:bg-[#0B1525]"
+                    className="h-32 rounded-2xl bg-slate-200/50 dark:bg-[#0B1525]/45"
                   />
                 ))}
               </div>
@@ -1095,7 +1095,7 @@ export default function App() {
 
       {/* Mobile Fixed Bottom Tab Bar (5 tabs, <= 64px) */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#070E1A]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#0D1E35] pb-safe"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-[#070E1A]/75 border-t border-slate-200/80 dark:border-[#0D1E35] pb-safe"
         aria-label="Navegación móvil"
       >
         <div className="grid grid-cols-5 h-16">

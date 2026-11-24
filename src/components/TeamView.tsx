@@ -60,7 +60,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
 
   return (
     <div className="space-y-5 pb-24 lg:pb-8 max-w-4xl">
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             Equipo y accesos ({employees.length})
@@ -85,7 +85,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
       </div>
 
       {/* Team List */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {employees.length === 0 ? (
             <p className="py-12 text-center text-sm text-slate-500">
@@ -97,7 +97,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
               return (
                 <div
                   key={emp.uid}
-                  className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                  className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -133,21 +133,21 @@ export const TeamView: React.FC<TeamViewProps> = ({
       </div>
 
       {/* Role Summary */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-2.5">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 space-y-2.5">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-800 dark:text-slate-200">
           <ShieldCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
           Permisos por rol en YA&apos;BI Store
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600 dark:text-slate-400 pt-1">
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+          <div className="p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35]">
             <p className="font-semibold text-slate-900 dark:text-white">Administrador</p>
             <p className="mt-1">Control total de POS, inventario, compras, reportes y equipo.</p>
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+          <div className="p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35]">
             <p className="font-semibold text-slate-900 dark:text-white">Vendedor</p>
             <p className="mt-1">Opera caja POS, consulta catálogo y atiende clientes.</p>
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
+          <div className="p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35]">
             <p className="font-semibold text-slate-900 dark:text-white">Bodega</p>
             <p className="mt-1">Gestiona existencias, recepciones de compra y conteos.</p>
           </div>

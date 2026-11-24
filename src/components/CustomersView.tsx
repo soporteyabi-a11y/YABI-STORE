@@ -135,13 +135,13 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   return (
     <div className="space-y-5 pb-24 lg:pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center p-1 bg-slate-100 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35] rounded-xl w-fit">
+        <div className="flex items-center p-1 bg-slate-100/70 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-xl w-fit">
           <button
             type="button"
             onClick={() => setSegment('customers')}
             className={`min-h-[38px] px-4 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               segment === 'customers'
-                ? 'bg-white dark:bg-[#0B1525] text-slate-900 dark:text-[#00C8FF] shadow-sm font-semibold'
+                ? 'bg-white/90 dark:bg-[#0F1E34]/80 text-slate-900 dark:text-[#00C8FF] shadow-sm font-semibold'
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
@@ -152,7 +152,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
             onClick={() => setSegment('suppliers')}
             className={`min-h-[38px] px-4 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               segment === 'suppliers'
-                ? 'bg-white dark:bg-[#0B1525] text-slate-900 dark:text-[#00C8FF] shadow-sm font-semibold'
+                ? 'bg-white/90 dark:bg-[#0F1E34]/80 text-slate-900 dark:text-[#00C8FF] shadow-sm font-semibold'
                 : 'text-slate-600 dark:text-slate-400'
             }`}
           >
@@ -168,7 +168,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={segment === 'customers' ? 'Buscar cliente…' : 'Buscar proveedor o NIT…'}
-              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-white dark:bg-[#0B1525] text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm text-slate-900 dark:text-white"
             />
           </div>
           <button
@@ -183,7 +183,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
       </div>
 
       {segment === 'customers' ? (
-        <div className="bg-white/95 dark:bg-[#0B1525]/95 border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-[#0D1E35]">
             {filteredCustomers.length === 0 ? (
               <p className="py-12 text-center text-sm text-slate-500">
@@ -193,7 +193,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               filteredCustomers.map((c) => (
                 <div
                   key={c.id}
-                  className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-[#0E1A2E]/60"
+                  className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
@@ -223,7 +223,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="bg-white/95 dark:bg-[#0B1525]/95 border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-[#0D1E35]">
             {filteredSuppliers.length === 0 ? (
               <p className="py-12 text-center text-sm text-slate-500">
@@ -233,7 +233,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               filteredSuppliers.map((s) => (
                 <div
                   key={s.id}
-                  className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-[#0E1A2E]/60"
+                  className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">

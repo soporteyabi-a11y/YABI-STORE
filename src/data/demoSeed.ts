@@ -16,6 +16,7 @@ export const DEMO_EMPRESA: EmpresaConfig = {
   id: 'EMP001',
   nombre: "DIGITAL YA'BI",
   nit: '901.482.310-4',
+  direccion: 'Calle 10 # 43A-20',
   ciudad: 'Medellín, Antioquia',
   telefono: '+57 300 412 8890',
   iva: 0,

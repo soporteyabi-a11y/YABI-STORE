@@ -218,7 +218,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-5xl">
       {/* Account & Cloud Sync */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
             Motor: {activeBackend === 'supabase' ? 'Supabase Postgres + Realtime' : 'Firebase yabi-store'} · Empresa: {empresa.id} · Estado:{' '}
@@ -262,7 +262,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       </div>
 
       {/* Supabase / Render Full Migration Backup */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center shrink-0">
@@ -319,19 +319,19 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
+          <div className="p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35]">
             <p className="font-semibold text-slate-800 dark:text-white">1. Copiar / Descargar SQL</p>
             <p className="text-slate-500 dark:text-slate-400 mt-0.5">
               Pulsa <strong>Copiar SQL completo</strong> y pégalo en <strong>Supabase → SQL Editor → Run</strong> (crea las 9 tablas, RLS, bucket <span className="font-mono">yabi-media</span> y tus datos).
             </p>
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
+          <div className="p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35]">
             <p className="font-semibold text-slate-800 dark:text-white">2. Usuario Administrador</p>
             <p className="text-slate-500 dark:text-slate-400 mt-0.5">
               En <strong>Authentication → Users</strong> crea tu cuenta y vincula su UUID en <span className="font-mono text-[#00C8FF]">public.usuarios</span>.
             </p>
           </div>
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
+          <div className="p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/45 border border-slate-200/80 dark:border-[#0D1E35]">
             <p className="font-semibold text-slate-800 dark:text-white">3. Variables Frontend &amp; Render</p>
             <p className="text-slate-500 dark:text-slate-400 mt-0.5">
               Define <span className="font-mono">VITE_SUPABASE_URL</span>, <span className="font-mono">VITE_SUPABASE_ANON_KEY</span> y{' '}
@@ -344,7 +344,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       {/* Company Settings */}
       <form
         onSubmit={handleSaveEmpresa}
-        className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4"
+        className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4"
       >
         <div>
           <h3 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -363,7 +363,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.nombre}
               onChange={(e) => setEmpForm({...empForm, nombre: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -373,7 +373,18 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.nit || ''}
               onChange={(e) => setEmpForm({...empForm, nit: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 font-mono text-sm text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+              Dirección
+            </label>
+            <input
+              value={empForm.direccion || ''}
+              onChange={(e) => setEmpForm({...empForm, direccion: e.target.value})}
+              placeholder="Ej: Cra. 5 # 12-34"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -383,7 +394,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.ciudad || ''}
               onChange={(e) => setEmpForm({...empForm, ciudad: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -393,7 +404,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             <input
               value={empForm.telefono || ''}
               onChange={(e) => setEmpForm({...empForm, telefono: e.target.value})}
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
             />
           </div>
           <div>
@@ -410,7 +421,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                     iva: isResp ? (Number(empForm.iva) > 0 ? Number(empForm.iva) : 19) : 0,
                   });
                 }}
-                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+                className="flex-1 h-11 px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
               >
                 <option value="no_responsable">No responsable de IVA (0%)</option>
                 <option value="responsable">Responsable de IVA</option>
@@ -423,16 +434,16 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                   aria-label="Porcentaje de IVA"
                   value={empForm.iva ?? 19}
                   onChange={(e) => setEmpForm({...empForm, iva: Math.max(0, Number(e.target.value))})}
-                  className="w-20 h-11 px-2.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] font-mono text-sm text-slate-900 dark:text-white text-center"
+                  className="w-20 h-11 px-2.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 font-mono text-sm text-slate-900 dark:text-white text-center"
                 />
               )}
             </div>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end sm:col-span-2 lg:col-span-3">
             <button
               type="submit"
               disabled={savingEmp}
-              className="w-full min-h-[44px] rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold"
+              className="w-full sm:w-auto sm:min-w-[220px] min-h-[44px] px-6 rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold"
             >
               {savingEmp ? 'Guardando…' : 'Guardar configuración'}
             </button>
@@ -442,7 +453,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
 
       {/* Appearance & PWA Install Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col justify-between gap-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Tema de interfaz (PC y Móvil)
@@ -454,14 +465,14 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
           <button
             type="button"
             onClick={onToggleDarkMode}
-            className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm font-medium text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2.5"
+            className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm font-medium text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2.5"
           >
             {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-sky-600" />}
             {darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           </button>
         </div>
 
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col justify-between gap-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div className="space-y-1">
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Instalación directa (PWA Móvil y PC)
@@ -484,7 +495,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Instalar App en este dispositivo
             </button>
           ) : (
-            <div className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-xs text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2">
+            <div className="min-h-[46px] px-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-center gap-2">
               <Monitor className="w-4 h-4 text-[#00C8FF]" />
               <span>
                 {isInstalled ? 'Ejecutando como App instalada' : 'Usa el menú del navegador → Instalar aplicación'}
@@ -495,7 +506,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       </div>
 
       {/* React Native Expo Companion Project */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#00C8FF]/10 text-[#00C8FF] flex items-center justify-center shrink-0">
             <Smartphone className="w-5 h-5" />
@@ -516,7 +527,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               key={snippet.id}
               className="rounded-xl border border-slate-200 dark:border-[#0D1E35] overflow-hidden"
             >
-              <div className="px-4 py-2.5 bg-slate-50 dark:bg-[#070E1A] border-b border-slate-200 dark:border-[#0D1E35] flex items-center justify-between gap-2">
+              <div className="px-4 py-2.5 bg-slate-50/65 dark:bg-[#070E1A]/50 border-b border-slate-200/80 dark:border-[#0D1E35] flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                     {snippet.title}
@@ -541,7 +552,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                   )}
                 </button>
               </div>
-              <pre className="p-3.5 text-[11px] font-mono text-slate-700 dark:text-slate-300 bg-white dark:bg-[#0B1525] overflow-x-auto leading-relaxed">
+              <pre className="p-3.5 text-[11px] font-mono text-slate-700 dark:text-slate-300 bg-white/50 dark:bg-[#0B1525]/35 overflow-x-auto leading-relaxed">
                 <code>{snippet.code}</code>
               </pre>
             </div>

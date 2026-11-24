@@ -29,6 +29,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     const lines = [
       `${empresa.nombre}`,
       empresa.nit ? `NIT: ${empresa.nit}` : '',
+      empresa.direccion ? `Dir: ${empresa.direccion}` : '',
+      empresa.ciudad ? empresa.ciudad : '',
+      empresa.telefono ? `Tel: ${empresa.telefono}` : '',
       `Comprobante ${sale.orden} · ${sale.fecha} ${sale.hora || ''}`,
       `Canal: ${sale.origen || 'POS'}`,
       `Cliente: ${sale.cliente}`,
@@ -93,8 +96,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               {empresa.nit && (
                 <p className="text-slate-500 dark:text-slate-400">NIT {empresa.nit}</p>
               )}
+              {empresa.direccion && (
+                <p className="text-slate-500 dark:text-slate-400">{empresa.direccion}</p>
+              )}
               {empresa.ciudad && (
                 <p className="text-slate-500 dark:text-slate-400">{empresa.ciudad}</p>
+              )}
+              {empresa.telefono && (
+                <p className="text-slate-500 dark:text-slate-400">Tel {empresa.telefono}</p>
               )}
               <p className="text-slate-500 dark:text-slate-400 mt-1">
                 {sale.fecha} {sale.hora ? `· ${sale.hora}` : ''}

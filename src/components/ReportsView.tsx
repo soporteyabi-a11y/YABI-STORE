@@ -89,7 +89,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     <div className="space-y-5 pb-24 lg:pb-8">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center p-1 bg-slate-100 dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-xl w-fit">
+        <div className="flex items-center p-1 bg-slate-100/70 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-xl w-fit">
           {(
             [
               {id: 'all', label: 'Todos los canales'},
@@ -103,7 +103,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               onClick={() => setChannelFilter(tab.id)}
               className={`min-h-[38px] px-3.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                 channelFilter === tab.id
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                  ? 'bg-white/90 dark:bg-[#0F1E34]/80 text-slate-900 dark:text-white shadow-sm'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
@@ -115,7 +115,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         <button
           type="button"
           onClick={handleExportCSV}
-          className="min-h-[44px] px-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
+          className="min-h-[44px] px-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-[#0E1A2E]/60 flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
         >
           <Download className="w-4 h-4 text-sky-600 dark:text-sky-400" />
           Exportar CSV
@@ -124,25 +124,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Ingresos totales</p>
           <p className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 truncate">
             {formatCOP(stats.revenue)}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Utilidad estimada</p>
           <p className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400 mt-1 truncate">
             {formatCOP(stats.profit)}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Margen bruto</p>
           <p className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1">
             {stats.marginPct}%
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Ticket promedio</p>
           <p className="text-xl sm:text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 truncate">
             {formatCOP(stats.avgTicket)}
@@ -152,7 +152,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
       {/* Breakdown Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             Recaudo por método de pago
           </h3>
@@ -183,7 +183,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           )}
         </div>
 
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 space-y-4">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             Productos más vendidos
           </h3>
@@ -208,7 +208,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       </div>
 
       {/* Sales Ledger */}
-      <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+      <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             Historial de ventas ({filteredSales.length})
@@ -223,7 +223,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             filteredSales.map((s) => (
               <div
                 key={s.id}
-                className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">

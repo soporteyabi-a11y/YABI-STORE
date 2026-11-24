@@ -111,7 +111,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <button
           type="button"
           onClick={() => onNavigateTab('sales')}
-          className="text-left rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-4 sm:p-5 transition-colors hover:border-[#00C8FF]/60"
+          className="text-left rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-4 sm:p-5 transition-colors hover:border-[#00C8FF]/60"
         >
           <div className="w-9 h-9 rounded-xl bg-[#00C8FF]/10 text-[#00C8FF] flex items-center justify-center mb-3">
             <DollarSign className="w-4 h-4" />
@@ -130,7 +130,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <button
           type="button"
           onClick={() => onNavigateTab('sales')}
-          className="text-left rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#00E87C] p-4 sm:p-5 transition-colors hover:border-[#00E87C]/60"
+          className="text-left rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#00E87C] p-4 sm:p-5 transition-colors hover:border-[#00E87C]/60"
         >
           <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center mb-3">
             <ClipboardList className="w-4 h-4" />
@@ -149,7 +149,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <button
           type="button"
           onClick={() => onNavigateTab('customers')}
-          className="text-left rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#A855F7] p-4 sm:p-5 transition-colors hover:border-[#A855F7]/60"
+          className="text-left rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#A855F7] p-4 sm:p-5 transition-colors hover:border-[#A855F7]/60"
         >
           <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-[#A855F7] flex items-center justify-center mb-3">
             <Users className="w-4 h-4" />
@@ -170,7 +170,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           onClick={() =>
             onNavigateTab(stats.lowStockProducts.length > 0 ? 'inventory' : 'purchases')
           }
-          className="text-left rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#FF4D6D] p-4 sm:p-5 transition-colors hover:border-[#FF4D6D]/60"
+          className="text-left rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#FF4D6D] p-4 sm:p-5 transition-colors hover:border-[#FF4D6D]/60"
         >
           <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-600 dark:text-[#FF4D6D] flex items-center justify-center mb-3">
             <AlertTriangle className="w-4 h-4" />
@@ -189,7 +189,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Omnichannel Split: Tienda Física (POS) + Tienda en Línea */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-        <div className="rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] p-4 sm:p-5 flex items-center justify-between gap-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-sky-500/10 dark:bg-[#00C8FF]/10 text-sky-600 dark:text-[#00C8FF] flex items-center justify-center shrink-0">
               <Store className="w-5 h-5" />
@@ -209,14 +209,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('pos')}
-            className="min-h-[38px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-xs font-semibold text-slate-800 dark:text-[#00C8FF] hover:border-[#00C8FF] inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+            className="min-h-[38px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/70 dark:bg-[#070E1A]/55 text-xs font-semibold text-slate-800 dark:text-[#00C8FF] hover:border-[#00C8FF] inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
           >
             <Monitor className="w-3.5 h-3.5" />
             Abrir POS
           </button>
         </div>
 
-        <div className="rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] p-4 sm:p-5 flex items-center justify-between gap-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-4 sm:p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-[#00E87C] flex items-center justify-center shrink-0">
               <Globe className="w-5 h-5" />
@@ -236,7 +236,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <button
             type="button"
             onClick={() => onNavigateTab('storefront')}
-            className="min-h-[38px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-xs font-semibold text-slate-800 dark:text-[#00E87C] hover:border-[#00E87C] inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+            className="min-h-[38px] px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/70 dark:bg-[#070E1A]/55 text-xs font-semibold text-slate-800 dark:text-[#00E87C] hover:border-[#00E87C] inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
           >
             <Globe className="w-3.5 h-3.5" />
             Ver Tienda
@@ -247,7 +247,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Middle 2-Column Analytical Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Left: Ventas por producto */}
-        <section className="rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] p-5">
+        <section className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <BarChart2 className="w-4 h-4 text-[#00C8FF]" />
@@ -307,7 +307,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
 
         {/* Right: Actividad reciente */}
-        <section className="rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] p-5">
+        <section className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-amber-400" />
@@ -336,7 +336,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   key={sale.id}
                   type="button"
                   onClick={() => onInspectSale(sale)}
-                  className="w-full py-3 flex items-center justify-between gap-3 text-left hover:bg-slate-50 dark:hover:bg-[#0E1A2E] px-2 -mx-2 rounded-lg transition-colors"
+                  className="w-full py-3 flex items-center justify-between gap-3 text-left hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/45 px-2 -mx-2 rounded-lg transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span
@@ -377,7 +377,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Bottom Full-Width Alertas de stock */}
-      <section className="rounded-2xl bg-white/95 dark:bg-[#0B1525]/90 backdrop-blur-sm border border-slate-200 dark:border-[#0D1E35] overflow-hidden">
+      <section className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-[#0D1E35] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-400" />
@@ -412,7 +412,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-[#0D1E35] text-sm">
                 {stats.lowStockProducts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-[#0E1A2E]/60">
+                  <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/45">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3 min-w-[200px]">
                         <ProductImage

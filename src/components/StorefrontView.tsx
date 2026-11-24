@@ -124,7 +124,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
         customerNameOverride: customerName.trim() || 'Comprador Tienda Online',
         deliveryNotes:
           deliveryType === 'Recoger en tienda física'
-            ? `Recoger en tienda física (${empresa.ciudad || 'Sede principal'})`
+            ? `Recoger en tienda física (${[empresa.direccion, empresa.ciudad].filter(Boolean).join(', ') || 'Sede principal'})`
             : `Envío a domicilio: ${deliveryAddress.trim() || 'Por confirmar'}`,
       });
       setCart([]);
@@ -139,7 +139,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
   return (
     <div className="space-y-6 pb-24 lg:pb-8">
       {/* Storefront Header Banner */}
-      <div className="relative overflow-hidden bg-white/95 dark:bg-[#0B1525]/95 border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="relative overflow-hidden bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5 max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-[#00C8FF]">
             {activeBanner
@@ -157,7 +157,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs text-slate-500 dark:text-slate-400">
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-[#00C8FF]" />
-              Sede física: {empresa.ciudad || 'Colombia'}
+              Sede física: {[empresa.direccion, empresa.ciudad].filter(Boolean).join(' · ') || 'Colombia'}
             </span>
             {empresa.telefono && (
               <span className="inline-flex items-center gap-1.5 font-mono">
@@ -188,7 +188,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar en catálogo físico y online…"
-            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-white dark:bg-[#0B1525] text-sm text-slate-900 dark:text-white"
+            className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm text-slate-900 dark:text-white"
           />
         </div>
 
@@ -201,7 +201,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
               className={`min-h-[40px] px-3.5 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 border ${
                 category === cat
                   ? 'bg-slate-900 text-white border-transparent dark:bg-[#00C8FF] dark:text-[#050A14] font-semibold'
-                  : 'bg-white dark:bg-[#0B1525] border-slate-200 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300'
+                  : 'bg-white/65 dark:bg-[#0B1525]/45 border-slate-200/80 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300'
               }`}
             >
               {cat}
@@ -213,7 +213,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
             className={`min-h-[40px] px-3.5 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5 border ${
               onlyWishlist
                 ? 'bg-rose-500/10 border-rose-500/40 text-rose-600 dark:text-rose-400'
-                : 'bg-white dark:bg-[#0B1525] border-slate-200 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300'
+                : 'bg-white/65 dark:bg-[#0B1525]/45 border-slate-200/80 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${onlyWishlist ? 'fill-current' : ''}`} />
@@ -229,7 +229,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
           return (
             <div
               key={product.id}
-              className="bg-white/95 dark:bg-[#0B1525]/95 border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden flex flex-col"
+              className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden flex flex-col"
             >
               <div className="relative aspect-[4/3] bg-slate-100 dark:bg-[#070E1A] overflow-hidden">
                 <button
@@ -443,7 +443,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({
                   />
                 ) : (
                   <p className="text-xs text-emerald-600 dark:text-[#00E87C] px-1">
-                    Retiro sin costo en tienda física: {empresa.ciudad || 'Sede principal'}.
+                    Retiro sin costo en tienda física: {[empresa.direccion, empresa.ciudad].filter(Boolean).join(' · ') || 'Sede principal'}.
                   </p>
                 )}
 

@@ -76,7 +76,7 @@ export const BannersView: React.FC<BannersViewProps> = ({
       {/* Create Banner Form */}
       <form
         onSubmit={handleCreate}
-        className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] p-5 space-y-4"
+        className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-5 space-y-4"
       >
         <div>
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -94,22 +94,22 @@ export const BannersView: React.FC<BannersViewProps> = ({
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
             placeholder="Título principal del banner"
-            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
           />
           <input
             value={subtitulo}
             onChange={(e) => setSubtitulo(e.target.value)}
             placeholder="Subtítulo o descuento"
-            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
           />
           <input
             value={cta}
             onChange={(e) => setCta(e.target.value)}
             placeholder="Texto del botón"
-            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
           />
           <div className="flex gap-2">
-            <label className="flex-1 min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 cursor-pointer">
+            <label className="flex-1 min-h-[44px] px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center justify-center gap-1.5 cursor-pointer">
               <Upload className="w-4 h-4 text-[#00C8FF]" />
               <span>{uploading ? 'Subiendo…' : img ? 'Lista' : 'Imagen'}</span>
               <input type="file" accept="image/*" onChange={handleUploadFile} className="hidden" />
@@ -129,7 +129,7 @@ export const BannersView: React.FC<BannersViewProps> = ({
       {/* Banners List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {banners.length === 0 ? (
-          <div className="md:col-span-2 rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] py-12 text-center">
+          <div className="md:col-span-2 rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] py-12 text-center">
             <ImageIcon className="w-8 h-8 text-slate-400 mx-auto mb-2" />
             <p className="text-sm text-slate-500 dark:text-slate-400">
               No hay banners configurados para tu tienda.
@@ -139,7 +139,7 @@ export const BannersView: React.FC<BannersViewProps> = ({
           banners.map((b) => (
             <div
               key={b.id}
-              className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] overflow-hidden flex flex-col"
+              className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] overflow-hidden flex flex-col"
             >
               <div className="relative h-40 bg-slate-100 dark:bg-[#070E1A]">
                 <img

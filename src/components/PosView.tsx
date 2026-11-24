@@ -268,7 +268,7 @@ export const PosView: React.FC<PosViewProps> = ({
       </div>
 
       {/* Payment & Totals */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 space-y-3">
+      <div className="p-4 border-t border-slate-200/80 dark:border-[#0D1E35] bg-slate-50/55 dark:bg-[#070E1A]/45 space-y-3">
         {/* Payment Method Segmented Control */}
         <div className="grid grid-cols-4 gap-1.5">
           {PAYMENT_METHODS.map((pm) => {
@@ -282,7 +282,7 @@ export const PosView: React.FC<PosViewProps> = ({
                 className={`min-h-[44px] px-2 py-1.5 rounded-xl text-xs font-medium flex flex-col items-center justify-center gap-1 border transition-colors ${
                   active
                     ? 'bg-sky-600 border-sky-600 text-white'
-                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
+                    : 'bg-white/75 dark:bg-[#0B1525]/55 border-slate-200/80 dark:border-[#0D1E35] text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -304,7 +304,7 @@ export const PosView: React.FC<PosViewProps> = ({
               value={discountInput}
               onChange={(e) => setDiscountInput(e.target.value)}
               placeholder="0"
-              className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono tabular-nums text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full h-10 px-3 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/75 dark:bg-[#0B1525]/55 text-sm font-mono tabular-nums text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
           {paymentMethod === 'Efectivo' ? (
@@ -318,7 +318,7 @@ export const PosView: React.FC<PosViewProps> = ({
                 value={cashInput}
                 onChange={(e) => setCashInput(e.target.value)}
                 placeholder={String(total)}
-                className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono tabular-nums text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                className="w-full h-10 px-3 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/75 dark:bg-[#0B1525]/55 text-sm font-mono tabular-nums text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
             </div>
           ) : (
@@ -326,7 +326,7 @@ export const PosView: React.FC<PosViewProps> = ({
               <span className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
                 Confirmación digital
               </span>
-              <div className="h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center text-xs text-slate-600 dark:text-slate-300">
+              <div className="h-10 px-3 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/75 dark:bg-[#0B1525]/55 flex items-center text-xs text-slate-600 dark:text-slate-300">
                 Cobro exacto {paymentMethod}
               </div>
             </div>
@@ -342,7 +342,7 @@ export const PosView: React.FC<PosViewProps> = ({
                   key={bill}
                   type="button"
                   onClick={() => setCashInput(String(bill))}
-                  className="min-h-[36px] rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-mono tabular-nums text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="min-h-[36px] rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/75 dark:bg-[#0B1525]/55 text-xs font-mono tabular-nums text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
                   ${bill / 1000}k
                 </button>
@@ -350,7 +350,7 @@ export const PosView: React.FC<PosViewProps> = ({
               <button
                 type="button"
                 onClick={() => setCashInput(String(total))}
-                className="min-h-[36px] rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium text-sky-600 dark:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="min-h-[36px] rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/75 dark:bg-[#0B1525]/55 text-xs font-medium text-sky-600 dark:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 Exacto
               </button>
@@ -361,7 +361,7 @@ export const PosView: React.FC<PosViewProps> = ({
                   key={key}
                   type="button"
                   onClick={() => appendCashDigit(key)}
-                  className="min-h-[40px] rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm font-mono font-semibold text-slate-800 dark:text-slate-100 active:scale-[0.97] transition-transform"
+                  className="min-h-[40px] rounded-lg bg-white/75 dark:bg-[#0B1525]/55 border border-slate-200/80 dark:border-[#0D1E35] text-sm font-mono font-semibold text-slate-800 dark:text-slate-100 active:scale-[0.97] transition-transform"
                 >
                   {key}
                 </button>
@@ -370,7 +370,7 @@ export const PosView: React.FC<PosViewProps> = ({
                 type="button"
                 onClick={backspaceCash}
                 aria-label="Borrar dígito"
-                className="min-h-[40px] rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 active:scale-[0.97] transition-transform"
+                className="min-h-[40px] rounded-lg bg-white/75 dark:bg-[#0B1525]/55 border border-slate-200/80 dark:border-[#0D1E35] flex items-center justify-center text-slate-600 dark:text-slate-300 active:scale-[0.97] transition-transform"
               >
                 <Delete className="w-4 h-4" />
               </button>
@@ -445,13 +445,13 @@ export const PosView: React.FC<PosViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar producto o SKU…"
-              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
           <button
             type="button"
             onClick={() => setSkuModalOpen(true)}
-            className="min-h-[44px] px-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 shrink-0 whitespace-nowrap"
+            className="min-h-[44px] px-3.5 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-[#0E1A2E]/60 flex items-center gap-2 shrink-0 whitespace-nowrap"
           >
             <QrCode className="w-4 h-4 text-sky-600 dark:text-sky-400" />
             <span className="hidden sm:inline">Código / SKU</span>
@@ -469,8 +469,8 @@ export const PosView: React.FC<PosViewProps> = ({
                 onClick={() => setCategory(cat)}
                 className={`min-h-[40px] px-3.5 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
                   active
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-slate-900 text-white dark:bg-[#00C8FF] dark:text-[#050A14] font-semibold'
+                    : 'bg-white/65 dark:bg-[#0B1525]/45 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-[#0D1E35] hover:bg-slate-100/80 dark:hover:bg-[#0E1A2E]/60'
                 }`}
               >
                 {cat}
@@ -481,7 +481,7 @@ export const PosView: React.FC<PosViewProps> = ({
 
         {/* Product Grid */}
         {filteredProducts.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center">
+          <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-10 text-center">
             <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
               No hay productos que coincidan con tu búsqueda
             </p>
@@ -507,7 +507,7 @@ export const PosView: React.FC<PosViewProps> = ({
                   type="button"
                   onClick={() => addToCart(product)}
                   disabled={product.stock <= 0}
-                  className="group text-left bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-sky-500/60 dark:hover:border-sky-400/50 rounded-2xl overflow-hidden transition-all active:scale-[0.98] disabled:opacity-50 flex flex-col"
+                  className="group text-left bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] hover:border-sky-500/60 dark:hover:border-[#00C8FF]/60 rounded-2xl overflow-hidden transition-all active:scale-[0.98] disabled:opacity-50 flex flex-col"
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                     <ProductImage
@@ -556,8 +556,8 @@ export const PosView: React.FC<PosViewProps> = ({
       </div>
 
       {/* Right Column: Desktop Sticky Ticket */}
-      <div className="hidden lg:block lg:col-span-5 sticky top-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-        <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+      <div className="hidden lg:block lg:col-span-5 sticky top-20 bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-slate-200/80 dark:border-[#0D1E35] flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
             Ticket de venta
           </h2>

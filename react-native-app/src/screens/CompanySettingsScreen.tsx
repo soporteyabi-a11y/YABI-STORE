@@ -23,6 +23,7 @@ export const CompanySettingsScreen: React.FC<CompanySettingsScreenProps> = ({
 }) => {
   const [nombre, setNombre] = useState(empresa.nombre);
   const [nit, setNit] = useState(empresa.nit || '');
+  const [direccion, setDireccion] = useState(empresa.direccion || '');
   const [ciudad, setCiudad] = useState(empresa.ciudad || '');
   const [telefono, setTelefono] = useState(empresa.telefono || '');
   const [responsableIva, setResponsableIva] = useState(Number(empresa.iva ?? 0) > 0);
@@ -34,6 +35,7 @@ export const CompanySettingsScreen: React.FC<CompanySettingsScreenProps> = ({
   useEffect(() => {
     setNombre(empresa.nombre);
     setNit(empresa.nit || '');
+    setDireccion(empresa.direccion || '');
     setCiudad(empresa.ciudad || '');
     setTelefono(empresa.telefono || '');
     const isResp = Number(empresa.iva ?? 0) > 0;
@@ -51,6 +53,7 @@ export const CompanySettingsScreen: React.FC<CompanySettingsScreenProps> = ({
       ...empresa,
       nombre: nombre.trim(),
       nit: nit.trim() || undefined,
+      direccion: direccion.trim() || undefined,
       ciudad: ciudad.trim() || undefined,
       telefono: telefono.trim() || undefined,
       iva: numericIva,
@@ -105,6 +108,15 @@ export const CompanySettingsScreen: React.FC<CompanySettingsScreenProps> = ({
           value={nit}
           onChangeText={setNit}
           placeholder="87942146-5"
+          placeholderTextColor="#64748B"
+          style={styles.input}
+        />
+
+        <Text style={styles.label}>Dirección</Text>
+        <TextInput
+          value={direccion}
+          onChangeText={setDireccion}
+          placeholder="Cra. 5 # 12-34"
           placeholderTextColor="#64748B"
           style={styles.input}
         />

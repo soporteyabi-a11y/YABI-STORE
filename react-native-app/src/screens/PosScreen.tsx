@@ -427,6 +427,9 @@ export const PosScreen: React.FC<PosScreenProps> = ({
               <View style={styles.receiptBox}>
                 <Text style={styles.receiptCompany}>{empresa.nombre}</Text>
                 {!!empresa.nit && <Text style={styles.receiptLine}>NIT {empresa.nit}</Text>}
+                {!!empresa.direccion && <Text style={styles.receiptLine}>{empresa.direccion}</Text>}
+                {!!empresa.ciudad && <Text style={styles.receiptLine}>{empresa.ciudad}</Text>}
+                {!!empresa.telefono && <Text style={styles.receiptLine}>Tel {empresa.telefono}</Text>}
                 <Text style={styles.receiptLine}>
                   {receiptSale.sale.fecha} {receiptSale.sale.hora || ''} · {receiptSale.sale.pago}
                 </Text>

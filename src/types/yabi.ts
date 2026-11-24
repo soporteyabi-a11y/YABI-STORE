@@ -150,6 +150,7 @@ export interface EmpresaConfig {
   id: string;
   nombre: string;
   nit?: string;
+  direccion?: string;
   ciudad?: string;
   telefono?: string;
   iva?: number;

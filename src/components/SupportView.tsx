@@ -47,7 +47,7 @@ export const SupportView: React.FC<SupportViewProps> = ({
     <div className="space-y-6 pb-24 lg:pb-8 max-w-5xl">
       {/* Direct Channels */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] p-5 flex items-center gap-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-5 flex items-center gap-4">
           <div className="w-11 h-11 rounded-xl bg-emerald-500/10 text-emerald-500 dark:text-[#00E87C] flex items-center justify-center shrink-0">
             <MessageSquare className="w-5 h-5" />
           </div>
@@ -61,7 +61,7 @@ export const SupportView: React.FC<SupportViewProps> = ({
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] p-5 flex items-center gap-4">
+        <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-5 flex items-center gap-4">
           <div className="w-11 h-11 rounded-xl bg-[#00C8FF]/10 text-[#00C8FF] flex items-center justify-center shrink-0">
             <Mail className="w-5 h-5" />
           </div>
@@ -79,7 +79,7 @@ export const SupportView: React.FC<SupportViewProps> = ({
       {/* New Ticket Form */}
       <form
         onSubmit={handleSubmit}
-        className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] p-5 space-y-4"
+        className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] p-5 space-y-4"
       >
         <div className="flex items-center gap-2">
           <Headphones className="w-4 h-4 text-[#00C8FF]" />
@@ -94,12 +94,12 @@ export const SupportView: React.FC<SupportViewProps> = ({
             value={asunto}
             onChange={(e) => setAsunto(e.target.value)}
             placeholder="Asunto de la solicitud"
-            className="sm:col-span-2 h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+            className="sm:col-span-2 h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
           />
           <select
             value={prioridad}
             onChange={(e) => setPrioridad(e.target.value as SupportTicket['prioridad'])}
-            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white"
+            className="h-11 px-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white"
           >
             <option value="Baja">Prioridad Baja</option>
             <option value="Media">Prioridad Media</option>
@@ -113,7 +113,7 @@ export const SupportView: React.FC<SupportViewProps> = ({
           value={mensaje}
           onChange={(e) => setMensaje(e.target.value)}
           placeholder="Describe el caso o requerimiento (ej. migración a Supabase, impresora térmica, inventario)…"
-          className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50 dark:bg-[#070E1A] text-sm text-slate-900 dark:text-white resize-none"
+          className="w-full p-3.5 rounded-xl border border-slate-200 dark:border-[#0D1E35] bg-slate-50/65 dark:bg-[#070E1A]/50 text-sm text-slate-900 dark:text-white resize-none"
         />
 
         <div className="flex justify-end">
@@ -129,7 +129,7 @@ export const SupportView: React.FC<SupportViewProps> = ({
       </form>
 
       {/* Tickets History */}
-      <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] overflow-hidden">
+      <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-[#0D1E35]">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             Historial de tickets ({tickets.length})
@@ -166,7 +166,7 @@ export const SupportView: React.FC<SupportViewProps> = ({
                 </div>
                 <p className="text-xs text-slate-600 dark:text-slate-300">{t.mensaje}</p>
                 {t.respuesta && (
-                  <div className="mt-2 p-3 rounded-xl bg-slate-50 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35] text-xs text-slate-700 dark:text-slate-300">
+                  <div className="mt-2 p-3 rounded-xl bg-slate-50/65 dark:bg-[#070E1A]/50 border border-slate-200/80 dark:border-[#0D1E35] text-xs text-slate-700 dark:text-slate-300">
                     <span className="font-semibold text-sky-600 dark:text-[#00C8FF]">Respuesta: </span>
                     {t.respuesta}
                   </div>

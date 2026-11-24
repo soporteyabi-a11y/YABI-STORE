@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.empresas (
   id TEXT PRIMARY KEY,
   nombre TEXT NOT NULL,
   nit TEXT,
+  direccion TEXT,
   ciudad TEXT,
   telefono TEXT,
   iva NUMERIC(5,2) NOT NULL DEFAULT 0,
@@ -18,6 +19,8 @@ CREATE TABLE IF NOT EXISTS public.empresas (
   activa BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE public.empresas ADD COLUMN IF NOT EXISTS direccion TEXT;
 
 -- 2. Usuarios / Empleados (vinculado a auth.users de Supabase)
 CREATE TABLE IF NOT EXISTS public.usuarios (

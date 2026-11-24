@@ -301,8 +301,13 @@ export default function App() {
             <View style={{flex: 1}}>
               <Text style={styles.moduleTitle}>Datos Fiscales y Empresa</Text>
               <Text style={styles.moduleSub}>
-                {empresa.nit ? `NIT ${empresa.nit} · ` : ''}
-                {ivaPct > 0 ? `Responsable IVA (${ivaPct}%)` : 'No responsable de IVA (0%)'}
+                {[
+                  empresa.nit ? `NIT ${empresa.nit}` : '',
+                  empresa.direccion || '',
+                  ivaPct > 0 ? `Responsable IVA (${ivaPct}%)` : 'No responsable de IVA (0%)',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </Text>
             </View>
           </Pressable>

@@ -36,6 +36,7 @@ export interface RnEmpresa {
   id: string;
   nombre: string;
   nit?: string;
+  direccion?: string;
   ciudad?: string;
   telefono?: string;
   iva?: number;
@@ -195,7 +196,9 @@ export function formatReceiptText(
   return [
     empresa.nombre,
     empresa.nit ? `NIT: ${empresa.nit}` : '',
+    empresa.direccion ? `Dir: ${empresa.direccion}` : '',
     empresa.ciudad ? empresa.ciudad : '',
+    empresa.telefono ? `Tel: ${empresa.telefono}` : '',
     `Comprobante ${sale.orden} · ${sale.fecha} ${sale.hora || ''}`,
     `Canal: ${sale.origen || 'POS'}`,
     `Cliente: ${sale.cliente}`,
@@ -246,6 +249,7 @@ export function subscribeEmpresaRealtime(
             id: snap.id,
             nombre: String(d.nombre || "DIGITAL YA'BI"),
             nit: d.nit ? String(d.nit) : undefined,
+            direccion: d.direccion ? String(d.direccion) : undefined,
             ciudad: d.ciudad ? String(d.ciudad) : undefined,
             telefono: d.telefono ? String(d.telefono) : undefined,
             iva: d.iva !== null && d.iva !== undefined ? Number(d.iva) : 0,

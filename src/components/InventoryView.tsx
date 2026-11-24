@@ -141,25 +141,25 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     <div className="space-y-5 pb-24 lg:pb-8">
       {/* KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Productos activos</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1">
             {metrics.activeCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Stock bajo</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-amber-600 dark:text-amber-400 mt-1">
             {metrics.lowCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Agotados</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-red-600 dark:text-red-400 mt-1">
             {metrics.outCount}
           </p>
         </div>
-        <div className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-4">
+        <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">Costo en bodega</p>
           <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1 truncate">
             {formatCOP(metrics.inventoryValue)}
@@ -177,13 +177,13 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre, SKU o categoría…"
-              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/45 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
             />
           </div>
         </div>
 
         <div className="flex items-center justify-between sm:justify-end gap-2">
-          <div className="flex items-center p-1 bg-slate-100 dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-xl">
+          <div className="flex items-center p-1 bg-slate-100/70 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-xl">
             {(
               [
                 {id: 'all', label: 'Todos'},
@@ -197,7 +197,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 onClick={() => setFilterMode(tab.id)}
                 className={`min-h-[36px] px-3 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                   filterMode === tab.id
-                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                    ? 'bg-white/90 dark:bg-[#0F1E34]/80 text-slate-900 dark:text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
@@ -218,7 +218,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
       </div>
 
       {/* Desktop High-Density Table */}
-      <div className="hidden md:block bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
+      <div className="hidden md:block bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -243,7 +243,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   const isLow = p.stock > 0 && p.stock <= p.minStock;
                   const isOut = p.stock <= 0;
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <tr key={p.id} className="hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <ProductImage
@@ -342,7 +342,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
           return (
             <div
               key={p.id}
-              className="bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-2xl p-3.5 space-y-3"
+              className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-3.5 space-y-3"
             >
               <div className="flex items-start gap-3">
                 <ProductImage

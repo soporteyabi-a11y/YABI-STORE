@@ -63,7 +63,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-6xl">
       {/* Current Plan Summary */}
-      <div className="rounded-2xl bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">
           <div className="w-11 h-11 rounded-xl bg-[#00C8FF]/10 text-[#00C8FF] flex items-center justify-center shrink-0">
             <Crown className="w-5 h-5" />
@@ -95,10 +95,10 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
           return (
             <div
               key={plan.id}
-              className={`rounded-2xl bg-white dark:bg-[#0B1525] border p-5 flex flex-col justify-between gap-5 ${
+              className={`rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border p-5 flex flex-col justify-between gap-5 ${
                 isCurrent
                   ? 'border-[#00C8FF] ring-1 ring-[#00C8FF]/30'
-                  : 'border-slate-200 dark:border-[#0D1E35]'
+                  : 'border-slate-200/80 dark:border-[#0D1E35]'
               }`}
             >
               <div className="space-y-3">
@@ -117,7 +117,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
                   <span className="text-xs font-sans font-normal text-slate-400"> /mes</span>
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{plan.desc}</p>
-                <ul className="space-y-2 pt-2 border-t border-slate-100 dark:border-[#0D1E35]">
+                <ul className="space-y-2 pt-2 border-t border-slate-200/70 dark:border-[#0D1E35]">
                   {plan.features.map((feat) => (
                     <li
                       key={feat}
@@ -136,7 +136,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
                 onClick={() => onChangePlan(plan.id)}
                 className={`w-full min-h-[42px] rounded-xl text-xs font-semibold transition-colors ${
                   isCurrent
-                    ? 'bg-slate-100 dark:bg-[#070E1A] text-slate-400 cursor-default'
+                    ? 'bg-slate-100/70 dark:bg-[#070E1A]/55 text-slate-400 cursor-default'
                     : 'bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] hover:opacity-90'
                 }`}
               >
