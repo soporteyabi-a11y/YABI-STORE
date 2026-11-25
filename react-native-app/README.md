@@ -1,7 +1,7 @@
 # YA'BI Store — App Móvil Nativa (React Native + Expo)
 
-Aplicación móvil nativa para iOS y Android conectada en tiempo real con **Supabase** (con caché local y cola offline en `AsyncStorage`) con:
-- **POS móvil con cámara SKU/QR**, descuento, cálculo de cambio en efectivo, cola offline automática y **comprobante compartible por WhatsApp** (`No responsable de IVA` o `Responsable de IVA`).
+Aplicación móvil nativa para iOS y Android conectada en tiempo real con **Supabase** (con caché estructurada y cola offline transaccional en **SQLite / `expo-sqlite`**) con:
+- **POS móvil con cámara SKU/QR**, descuento, cálculo de cambio en efectivo, cola offline automática en SQLite y **comprobante compartible por WhatsApp** (`No responsable de IVA` o `Responsable de IVA`).
 - **Ventas y Despachos** (guías de envío, estado y reenvío de comprobante).
 - **Inventario con cámara** y ajuste rápido de stock.
 - **Compras atómicas** (`recibir_compra`).

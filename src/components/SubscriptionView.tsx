@@ -7,6 +7,7 @@ interface SubscriptionViewProps {
   empresa: EmpresaConfig;
   productsCount: number;
   employeesCount: number;
+  isOwner?: boolean;
   onChangePlan: (plan: NonNullable<EmpresaConfig['plan']>) => Promise<void>;
 }
 
@@ -56,9 +57,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
   empresa,
   productsCount,
   employeesCount,
+  isOwner = false,
   onChangePlan,
 }) => {
-  const activePlan = empresa.plan || 'Pro';
+  const activePlan = empresa.plan || 'Oro';
+  const currentPrice = isOwner ? 0 : PLANS.find((p) => p.id === activePlan)?.price || 249000;
 
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-6xl">
@@ -77,13 +80,16 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Uso actual: {productsCount} productos en catálogo · {employeesCount} usuarios activos
+              {isOwner ? ' · Cuenta Propietario (exenta de cobro)' : ''}
             </p>
           </div>
         </div>
         <div className="text-left sm:text-right">
-          <p className="text-xs text-slate-400">Facturación mensual</p>
+          <p className="text-xs text-slate-400">
+            {isOwner ? 'Licencia de Propietario' : 'Facturación mensual'}
+          </p>
           <p className="text-lg font-bold font-mono tabular-nums text-emerald-600 dark:text-[#00E87C]">
-            {formatCOP(PLANS.find((p) => p.id === activePlan)?.price || 149000)} / mes
+            {formatCOP(currentPrice)} / mes
           </p>
         </div>
       </div>
@@ -92,6 +98,7 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {PLANS.map((plan) => {
           const isCurrent = plan.id === activePlan;
+          const displayPrice = isOwner ? 0 : plan.price;
           return (
             <div
               key={plan.id}
@@ -112,10 +119,17 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
                     </span>
                   )}
                 </div>
-                <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
-                  {formatCOP(plan.price)}
-                  <span className="text-xs font-sans font-normal text-slate-400"> /mes</span>
-                </p>
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <p className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
+                    {formatCOP(displayPrice)}
+                    <span className="text-xs font-sans font-normal text-slate-400"> /mes</span>
+                  </p>
+                  {isOwner && (
+                    <span className="text-[11px] font-mono line-through text-slate-400">
+                      {formatCOP(plan.price)}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">{plan.desc}</p>
                 <ul className="space-y-2 pt-2 border-t border-slate-200/70 dark:border-[#0D1E35]">
                   {plan.features.map((feat) => (
@@ -140,7 +154,11 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
                     : 'bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] hover:opacity-90'
                 }`}
               >
-                {isCurrent ? 'Plan activo' : `Cambiar a ${plan.id}`}
+                {isCurrent
+                  ? 'Plan activo'
+                  : isOwner
+                  ? `Activar ${plan.id} ($0)`
+                  : `Cambiar a ${plan.id}`}
               </button>
             </div>
           );

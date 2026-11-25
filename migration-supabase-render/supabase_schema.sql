@@ -284,6 +284,74 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.registrar_dueno_yabi(
+  p_empresa_id TEXT DEFAULT 'EMP001',
+  p_nombre_tienda TEXT DEFAULT 'DIGITAL YA''BI',
+  p_nombre_dueno TEXT DEFAULT 'Propietario',
+  p_nit TEXT DEFAULT NULL,
+  p_direccion TEXT DEFAULT NULL,
+  p_ciudad TEXT DEFAULT NULL,
+  p_telefono TEXT DEFAULT NULL,
+  p_iva NUMERIC DEFAULT 0
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_email TEXT;
+  v_emp_id TEXT := COALESCE(NULLIF(trim(p_empresa_id), ''), 'EMP001');
+  v_tienda TEXT := COALESCE(NULLIF(trim(p_nombre_tienda), ''), 'DIGITAL YA''BI');
+  v_dueno TEXT := COALESCE(NULLIF(trim(p_nombre_dueno), ''), 'Propietario');
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Debes iniciar sesión primero para registrar la tienda.';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.usuarios WHERE rol = 'superadmin' AND uid <> v_uid) THEN
+    RAISE EXCEPTION 'Ya existe un propietario principal registrado en YA''BI Store.';
+  END IF;
+
+  SELECT email INTO v_email FROM auth.users WHERE id = v_uid;
+  IF v_email IS NULL THEN
+    RAISE EXCEPTION 'No se encontró el correo del usuario autenticado.';
+  END IF;
+
+  INSERT INTO public.empresas (id, nombre, nit, direccion, ciudad, telefono, iva, plan, color, activa)
+  VALUES (
+    v_emp_id,
+    v_tienda,
+    NULLIF(trim(COALESCE(p_nit, '')), ''),
+    NULLIF(trim(COALESCE(p_direccion, '')), ''),
+    NULLIF(trim(COALESCE(p_ciudad, '')), ''),
+    NULLIF(trim(COALESCE(p_telefono, '')), ''),
+    COALESCE(p_iva, 0),
+    'Oro',
+    '#00C8FF',
+    true
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    nombre = EXCLUDED.nombre,
+    nit = COALESCE(EXCLUDED.nit, public.empresas.nit),
+    direccion = COALESCE(EXCLUDED.direccion, public.empresas.direccion),
+    ciudad = COALESCE(EXCLUDED.ciudad, public.empresas.ciudad),
+    telefono = COALESCE(EXCLUDED.telefono, public.empresas.telefono),
+    iva = EXCLUDED.iva,
+    plan = 'Oro',
+    activa = true;
+
+  INSERT INTO public.usuarios (uid, empresa_id, nombre, email, rol)
+  VALUES (v_uid, v_emp_id, v_dueno, v_email, 'superadmin')
+  ON CONFLICT (uid) DO UPDATE SET
+    empresa_id = EXCLUDED.empresa_id,
+    nombre = EXCLUDED.nombre,
+    email = EXCLUDED.email,
+    rol = 'superadmin';
+END;
+$$;
+
 -- ============================================================================
 -- Row Level Security (RLS) Multi-Empresa
 -- ============================================================================

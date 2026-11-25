@@ -175,13 +175,12 @@ export const PosScreen: React.FC<PosScreenProps> = ({
       setScanHint('');
       setCheckoutOpen(false);
       setReceiptSale({sale, cashReceived: paidCash});
+      await onRefresh();
       if (result.queuedOffline) {
         Alert.alert(
-          'Venta guardada offline',
-          'Sin conexión a internet. La venta quedó en cola local y se subirá automáticamente a Supabase al reconectar.'
+          'Venta guardada offline (SQLite)',
+          'Sin conexión a internet. La venta y el ajuste de stock quedaron guardados en SQLite y se subirán automáticamente a Supabase al reconectar.'
         );
-      } else {
-        await onRefresh();
       }
     } catch (err) {
       Alert.alert(

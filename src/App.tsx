@@ -54,6 +54,9 @@ import {
   deleteEmployeeCloud,
   deleteProductCloud,
   flushOfflineQueueCloud,
+  getOfflineQueueCountAsync,
+  hydrateEmpresaFromIndexedDb,
+  initOfflinePersistence,
   isSupabaseConfigured,
   loadUserContext,
   localStore,
@@ -260,7 +263,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Hydrate cached snapshot immediately for instant offline / cold-start readiness
+    let disposed = false;
+
+    // Hydrate synchronous fallback first, then upgrade from IndexedDB (supports >5MB catalogs & offline queue)
     setEmpresa(localStore.getEmpresa(activeEmpresaId));
     setProducts(localStore.getProducts(activeEmpresaId));
     setCustomers(localStore.getCustomers(activeEmpresaId));
@@ -273,10 +278,35 @@ export default function App() {
     setEmails(localStore.getEmails(activeEmpresaId));
     setWishlist(localStore.getWishlist(activeEmpresaId));
 
+    (async () => {
+      await initOfflinePersistence();
+      const [idbSnap, qCount] = await Promise.all([
+        hydrateEmpresaFromIndexedDb(activeEmpresaId),
+        getOfflineQueueCountAsync(),
+      ]);
+      if (disposed) return;
+      setPendingSyncCount(qCount);
+      if (idbSnap && (!userProfile || !isOnline)) {
+        if (idbSnap.empresa) setEmpresa(idbSnap.empresa);
+        if (idbSnap.products) setProducts(idbSnap.products);
+        if (idbSnap.customers) setCustomers(idbSnap.customers);
+        if (idbSnap.suppliers) setSuppliers(idbSnap.suppliers);
+        if (idbSnap.purchases) setPurchases(idbSnap.purchases);
+        if (idbSnap.banners) setBanners(idbSnap.banners);
+        if (idbSnap.employees) setEmployees(idbSnap.employees);
+        if (idbSnap.sales) setSales(idbSnap.sales);
+        if (idbSnap.tickets) setTickets(idbSnap.tickets);
+        if (idbSnap.emails) setEmails(idbSnap.emails);
+        if (idbSnap.wishlist) setWishlist(idbSnap.wishlist);
+      }
+    })();
+
     if (!userProfile || !isSupabaseConfigured) {
       setDataSource('local');
       setLoading(false);
-      return;
+      return () => {
+        disposed = true;
+      };
     }
 
     if (!isOnline) {
@@ -341,6 +371,7 @@ export default function App() {
     const safetyTimer = setTimeout(() => setLoading(false), 2500);
 
     return () => {
+      disposed = true;
       clearTimeout(safetyTimer);
       unsubCloud();
     };
@@ -356,7 +387,8 @@ export default function App() {
       const flushedQueue = await flushOfflineQueueCloud();
       totalSynced += flushedQueue;
       if (!cancelled) {
-        setPendingSyncCount(localStore.getOfflineQueue().length);
+        const remainingCount = await getOfflineQueueCountAsync();
+        setPendingSyncCount(remainingCount);
       }
 
       const pendingSales = sales.filter((s) => s.pendingSync);
@@ -1556,6 +1588,7 @@ export default function App() {
                   empresa={empresa}
                   productsCount={products.length}
                   employeesCount={employees.length}
+                  isOwner={!userProfile || userProfile.rol === 'superadmin'}
                   onChangePlan={handleChangePlan}
                 />
               )}
@@ -1723,6 +1756,8 @@ export default function App() {
       {/* Modals */}
       <AuthModal
         open={authModalOpen}
+        defaultEmpresa={empresa}
+        onSaveLocalEmpresa={handleSaveEmpresa}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={() => {}}
         onNotify={notify}

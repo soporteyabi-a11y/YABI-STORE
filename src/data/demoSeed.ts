@@ -20,7 +20,7 @@ export const DEMO_EMPRESA: EmpresaConfig = {
   ciudad: 'Medellín, Antioquia',
   telefono: '+57 300 412 8890',
   iva: 0,
-  plan: 'Pro',
+  plan: 'Oro',
   color: '#00C8FF',
   activa: true,
 };

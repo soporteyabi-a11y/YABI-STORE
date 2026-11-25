@@ -27,7 +27,8 @@ import {
   Users,
 } from 'lucide-react-native';
 import {
-  flushRnOfflineSales,
+  flushRnOfflineQueue,
+  getRnOfflineQueueCount,
   listAccessibleEmpresas,
   loadRnOfflineCache,
   resolveUserContext,
@@ -91,6 +92,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState<RnSupplier[]>([]);
   const [banners, setBanners] = useState<RnBanner[]>([]);
   const [tickets, setTickets] = useState<RnTicket[]>([]);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [moreModule, setMoreModule] = useState<MoreModule>('menu');
 
   const [email, setEmail] = useState('');
@@ -149,7 +151,13 @@ export default function App() {
       if (cached.tickets) setTickets(cached.tickets);
     });
 
-    flushRnOfflineSales();
+    getRnOfflineQueueCount().then((cnt) => {
+      if (active) setPendingSyncCount(cnt);
+    });
+
+    flushRnOfflineQueue().then(async () => {
+      if (active) setPendingSyncCount(await getRnOfflineQueueCount());
+    });
 
     const unsubCloud = subscribeEmpresaRealtime(empresaId, {
       onEmpresa: (emp) => {
@@ -166,7 +174,9 @@ export default function App() {
       onSales: (items) => {
         saveRnOfflineCache(empresaId, {sales: items});
         setSales(items);
-        flushRnOfflineSales();
+        flushRnOfflineQueue().then(async () => {
+          if (active) setPendingSyncCount(await getRnOfflineQueueCount());
+        });
       },
       onPurchases: (items) => {
         saveRnOfflineCache(empresaId, {purchases: items});
@@ -320,7 +330,9 @@ export default function App() {
         <View style={styles.empBadge}>
           <Text style={styles.empName}>{empresa.nombre}</Text>
           <Text style={styles.empCode}>
-            {empresaId} · Supabase · {ivaPct > 0 ? `IVA ${ivaPct}%` : 'No responsable de IVA'}
+            {empresaId} · Supabase + SQLite ·{' '}
+            {ivaPct > 0 ? `IVA ${ivaPct}%` : 'No responsable de IVA'}
+            {pendingSyncCount > 0 ? ` · ${pendingSyncCount} pend.` : ''}
           </Text>
           <Text style={styles.empEmail}>{userEmail}</Text>
         </View>
@@ -452,7 +464,14 @@ export default function App() {
               products={products}
               customers={customers}
               onRefresh={async () => {
-                await flushRnOfflineSales();
+                await flushRnOfflineQueue();
+                const [snap, cnt] = await Promise.all([
+                  loadRnOfflineCache(empresaId),
+                  getRnOfflineQueueCount(),
+                ]);
+                if (snap?.products) setProducts(snap.products);
+                if (snap?.sales) setSales(snap.sales);
+                setPendingSyncCount(cnt);
               }}
             />
           )}

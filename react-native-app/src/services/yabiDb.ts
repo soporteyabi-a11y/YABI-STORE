@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {isRnSupabaseConfigured} from '../config/supabase';
+import {sqliteStore} from './sqliteStore';
 import {
   commitSaleSupabase,
   deleteBannerSupabase,
@@ -151,49 +151,33 @@ export interface RnOfflineSnapshot {
   tickets?: RnTicket[];
 }
 
-interface RnQueuedSale {
-  empresaId: string;
-  sale: RnSale;
-  stockUpdates: {id: string; stock: number}[];
-}
-
 export const rnActiveBackend = 'supabase' as const;
 export {isRnSupabaseConfigured};
 
-const RN_CACHE_PREFIX = 'yabi_rn_cache_v1_';
-const RN_OFFLINE_SALES_KEY = 'yabi_rn_offline_sales_v1';
+function isNetworkFailure(err: unknown): boolean {
+  const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  return (
+    message.includes('network') ||
+    message.includes('fetch') ||
+    message.includes('timeout') ||
+    message.includes('connection') ||
+    message.includes('offline')
+  );
+}
 
 export async function loadRnOfflineCache(empresaId: string): Promise<RnOfflineSnapshot | null> {
-  try {
-    const raw = await AsyncStorage.getItem(`${RN_CACHE_PREFIX}${empresaId}`);
-    return raw ? (JSON.parse(raw) as RnOfflineSnapshot) : null;
-  } catch {
-    return null;
-  }
+  return sqliteStore.loadEmpresaSnapshot(empresaId);
 }
 
 export async function saveRnOfflineCache(
   empresaId: string,
   patch: RnOfflineSnapshot
 ): Promise<void> {
-  try {
-    const existing = (await loadRnOfflineCache(empresaId)) || {};
-    await AsyncStorage.setItem(
-      `${RN_CACHE_PREFIX}${empresaId}`,
-      JSON.stringify({...existing, ...patch})
-    );
-  } catch {
-    // ignore storage errors on low-space devices
-  }
+  await sqliteStore.saveEmpresaSnapshot(empresaId, patch);
 }
 
-export async function getRnOfflineSalesQueue(): Promise<RnQueuedSale[]> {
-  try {
-    const raw = await AsyncStorage.getItem(RN_OFFLINE_SALES_KEY);
-    return raw ? (JSON.parse(raw) as RnQueuedSale[]) : [];
-  } catch {
-    return [];
-  }
+export async function getRnOfflineQueueCount(): Promise<number> {
+  return sqliteStore.getQueueCount();
 }
 
 export async function enqueueRnOfflineSale(
@@ -201,40 +185,71 @@ export async function enqueueRnOfflineSale(
   sale: RnSale,
   stockUpdates: {id: string; stock: number}[]
 ): Promise<number> {
-  const queue = await getRnOfflineSalesQueue();
-  const next: RnQueuedSale[] = [...queue, {empresaId, sale: {...sale, pendingSync: true}, stockUpdates}];
-  try {
-    await AsyncStorage.setItem(RN_OFFLINE_SALES_KEY, JSON.stringify(next));
-  } catch {
-    // ignore storage quota errors
-  }
-  return next.length;
+  await sqliteStore.recordOfflineSaleLocal(empresaId, sale, stockUpdates);
+  return sqliteStore.getQueueCount();
 }
 
 export async function flushRnOfflineSales(): Promise<number> {
   if (!isRnSupabaseConfigured) return 0;
-  const queue = await getRnOfflineSalesQueue();
+  const queue = await sqliteStore.getQueuedOps();
   if (queue.length === 0) return 0;
 
   let synced = 0;
-  const remaining: RnQueuedSale[] = [];
 
-  for (const item of queue) {
+  for (const op of queue) {
     try {
-      await commitSaleSupabase(item.empresaId, {...item.sale, pendingSync: false}, item.stockUpdates);
+      if (op.opType === 'commitSale') {
+        const p = op.payload as {sale: RnSale; stockUpdates: {id: string; stock: number}[]};
+        await commitSaleSupabase(op.empresaId, {...p.sale, pendingSync: false}, p.stockUpdates);
+        await sqliteStore.markOpSynced(op.id, op.empresaId, p.sale.id);
+      } else if (op.opType === 'updateSale') {
+        const p = op.payload as {saleId: string; patch: Partial<RnSale>};
+        await updateSaleSupabase(op.empresaId, p.saleId, p.patch);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'saveProduct') {
+        await saveProductSupabase(op.empresaId, op.payload as RnProduct);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'updateStock') {
+        const p = op.payload as {productId: string; stock: number};
+        await updateStockSupabase(op.empresaId, p.productId, p.stock);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'savePurchase') {
+        await savePurchaseSupabase(op.empresaId, op.payload as RnPurchase);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'receivePurchase') {
+        const p = op.payload as {purchaseId: string; productId: string; newStock: number};
+        await receivePurchaseSupabase(op.empresaId, p.purchaseId, p.productId, p.newStock);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'saveCustomer') {
+        await saveCustomerSupabase(op.empresaId, op.payload as RnCustomer);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'saveSupplier') {
+        await saveSupplierSupabase(op.empresaId, op.payload as RnSupplier);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'saveBanner') {
+        await saveBannerSupabase(op.empresaId, op.payload as RnBanner);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'deleteBanner') {
+        const p = op.payload as {bannerId: string};
+        await deleteBannerSupabase(op.empresaId, p.bannerId);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'saveTicket') {
+        await saveTicketSupabase(op.payload as RnTicket);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      } else if (op.opType === 'saveEmpresa') {
+        await saveEmpresaConfigSupabase(op.payload as RnEmpresa);
+        await sqliteStore.markOpSynced(op.id, op.empresaId);
+      }
       synced++;
     } catch {
-      remaining.push(item);
+      // keep remaining ops in SQLite queue until connection recovers
     }
   }
 
-  try {
-    await AsyncStorage.setItem(RN_OFFLINE_SALES_KEY, JSON.stringify(remaining));
-  } catch {
-    // ignore storage quota errors
-  }
   return synced;
 }
+
+export const flushRnOfflineQueue = flushRnOfflineSales;
 
 export const rnAuth = {
   subscribe: (cb: (user: RnAuthUser | null) => void): (() => void) => {
@@ -322,11 +337,27 @@ export async function updateStock(
   productId: string,
   stock: number
 ): Promise<void> {
-  return updateStockSupabase(empresaId, productId, stock);
+  try {
+    await updateStockSupabase(empresaId, productId, stock);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'updateStock', {productId, stock});
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function saveProduct(empresaId: string, product: RnProduct): Promise<void> {
-  return saveProductSupabase(empresaId, product);
+  try {
+    await saveProductSupabase(empresaId, product);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'saveProduct', product);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function commitSale(
@@ -338,14 +369,7 @@ export async function commitSale(
     await commitSaleSupabase(empresaId, sale, stockUpdates);
     return {queuedOffline: false};
   } catch (err) {
-    const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-    const isNetworkError =
-      message.includes('network') ||
-      message.includes('fetch') ||
-      message.includes('timeout') ||
-      message.includes('connection') ||
-      message.includes('offline');
-    if (isNetworkError) {
+    if (isNetworkFailure(err)) {
       await enqueueRnOfflineSale(empresaId, sale, stockUpdates);
       return {queuedOffline: true};
     }
@@ -358,11 +382,27 @@ export async function updateSale(
   saleId: string,
   patch: Partial<RnSale>
 ): Promise<void> {
-  return updateSaleSupabase(empresaId, saleId, patch);
+  try {
+    await updateSaleSupabase(empresaId, saleId, patch);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'updateSale', {saleId, patch});
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function savePurchase(empresaId: string, purchase: RnPurchase): Promise<void> {
-  return savePurchaseSupabase(empresaId, purchase);
+  try {
+    await savePurchaseSupabase(empresaId, purchase);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'savePurchase', purchase);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function receivePurchase(
@@ -371,29 +411,89 @@ export async function receivePurchase(
   productId: string,
   newStock: number
 ): Promise<void> {
-  return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
+  try {
+    await receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'receivePurchase', {
+        purchaseId,
+        productId,
+        newStock,
+      });
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function saveCustomer(empresaId: string, customer: RnCustomer): Promise<void> {
-  return saveCustomerSupabase(empresaId, customer);
+  try {
+    await saveCustomerSupabase(empresaId, customer);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'saveCustomer', customer);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function saveSupplier(empresaId: string, supplier: RnSupplier): Promise<void> {
-  return saveSupplierSupabase(empresaId, supplier);
+  try {
+    await saveSupplierSupabase(empresaId, supplier);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'saveSupplier', supplier);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function saveBanner(empresaId: string, banner: RnBanner): Promise<void> {
-  return saveBannerSupabase(empresaId, banner);
+  try {
+    await saveBannerSupabase(empresaId, banner);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'saveBanner', banner);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function deleteBanner(empresaId: string, bannerId: string): Promise<void> {
-  return deleteBannerSupabase(empresaId, bannerId);
+  try {
+    await deleteBannerSupabase(empresaId, bannerId);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresaId, 'deleteBanner', {bannerId});
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function saveTicket(ticket: RnTicket): Promise<void> {
-  return saveTicketSupabase(ticket);
+  try {
+    await saveTicketSupabase(ticket);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(ticket.empresaId, 'saveTicket', ticket);
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function saveEmpresaConfig(empresa: RnEmpresa): Promise<void> {
-  return saveEmpresaConfigSupabase(empresa);
+  try {
+    await saveEmpresaConfigSupabase(empresa);
+  } catch (err) {
+    if (isNetworkFailure(err)) {
+      await sqliteStore.enqueueOp(empresa.id, 'saveEmpresa', empresa);
+      return;
+    }
+    throw err;
+  }
 }

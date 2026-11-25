@@ -10,6 +10,7 @@ import type {
   SupportTicket,
   UserProfile,
 } from '../types/yabi';
+import {idbStore, type IdbEmpresaSnapshot} from './indexedDbStore';
 import {isSupabaseConfigured} from './supabaseClient';
 import {
   commitSaleSupabase,
@@ -118,6 +119,20 @@ export const yabiAuth = {
     assertSupabaseConfigured();
     return supabaseAuth.login(email, pass);
   },
+  registerOwner: async (payload: {
+    email: string;
+    password: string;
+    nombreDueno: string;
+    nombreTienda: string;
+    nit?: string;
+    direccion?: string;
+    ciudad?: string;
+    telefono?: string;
+    iva?: number;
+  }) => {
+    assertSupabaseConfigured();
+    return supabaseAuth.registerOwner(payload);
+  },
   logout: async () => {
     if (!isSupabaseConfigured) return;
     await supabaseAuth.logout();
@@ -204,6 +219,22 @@ function defaultForEmpresa<T>(empId: string, emp001Fallback: T, emptyFallback: T
   return empId === 'EMP001' ? emp001Fallback : emptyFallback;
 }
 
+export async function initOfflinePersistence(): Promise<void> {
+  await idbStore.migrateFromLocalStorage();
+}
+
+export async function hydrateEmpresaFromIndexedDb(
+  empresaId: string
+): Promise<IdbEmpresaSnapshot | null> {
+  return idbStore.getEmpresaSnapshot(empresaId);
+}
+
+export async function getOfflineQueueCountAsync(): Promise<number> {
+  const idbCount = await idbStore.getOfflineQueueCount();
+  const lsCount = localStore.getOfflineQueue().length;
+  return Math.max(idbCount, lsCount);
+}
+
 export const localStore = {
   getActiveEmpresaId: (): string => {
     try {
@@ -213,11 +244,13 @@ export const localStore = {
     }
   },
   saveActiveEmpresaId: (empresaId: string) => {
+    const id = empresaId || 'EMP001';
     try {
-      localStorage.setItem(LOCAL_KEYS.activeEmpresaId, empresaId || 'EMP001');
+      localStorage.setItem(LOCAL_KEYS.activeEmpresaId, id);
     } catch {
       // ignore
     }
+    void idbStore.putKv('active_empresa_id', id);
   },
   getEmpresas: (): EmpresaConfig[] => {
     const legacyMain = readLocal<EmpresaConfig>(LOCAL_KEYS.empresa, DEMO_EMPRESA);
@@ -231,9 +264,11 @@ export const localStore = {
   },
   saveEmpresas: (list: EmpresaConfig[]) => {
     writeLocal(LOCAL_KEYS.empresasList, list);
+    void idbStore.putKv('empresas_list', list);
     const emp001 = list.find((e) => e.id === 'EMP001');
     if (emp001) {
       writeLocal(LOCAL_KEYS.empresa, emp001);
+      void idbStore.putCollection('EMP001', 'empresa', emp001);
     }
   },
   upsertEmpresa: (data: EmpresaConfig): EmpresaConfig[] => {
@@ -246,6 +281,7 @@ export const localStore = {
     } else {
       writeLocal(scopedKey('empresa', data.id), data);
     }
+    void idbStore.putCollection(data.id, 'empresa', data);
     return next;
   },
   getEmpresa: (empresaId?: string): EmpresaConfig => {
@@ -264,70 +300,101 @@ export const localStore = {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<Product[]>(scopedKey('products', id), defaultForEmpresa(id, DEMO_PRODUCTS, []));
   },
-  saveProducts: (data: Product[], empresaId?: string) =>
-    writeLocal(scopedKey('products', empresaId || localStore.getActiveEmpresaId()), data),
+  saveProducts: (data: Product[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('products', id), data);
+    void idbStore.putCollection(id, 'products', data);
+  },
   getCustomers: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<Customer[]>(scopedKey('customers', id), defaultForEmpresa(id, DEMO_CUSTOMERS, []));
   },
-  saveCustomers: (data: Customer[], empresaId?: string) =>
-    writeLocal(scopedKey('customers', empresaId || localStore.getActiveEmpresaId()), data),
+  saveCustomers: (data: Customer[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('customers', id), data);
+    void idbStore.putCollection(id, 'customers', data);
+  },
   getSuppliers: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<Supplier[]>(scopedKey('suppliers', id), defaultForEmpresa(id, DEMO_SUPPLIERS, []));
   },
-  saveSuppliers: (data: Supplier[], empresaId?: string) =>
-    writeLocal(scopedKey('suppliers', empresaId || localStore.getActiveEmpresaId()), data),
+  saveSuppliers: (data: Supplier[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('suppliers', id), data);
+    void idbStore.putCollection(id, 'suppliers', data);
+  },
   getPurchases: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<Purchase[]>(scopedKey('purchases', id), defaultForEmpresa(id, DEMO_PURCHASES, []));
   },
-  savePurchases: (data: Purchase[], empresaId?: string) =>
-    writeLocal(scopedKey('purchases', empresaId || localStore.getActiveEmpresaId()), data),
+  savePurchases: (data: Purchase[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('purchases', id), data);
+    void idbStore.putCollection(id, 'purchases', data);
+  },
   getBanners: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<StoreBanner[]>(scopedKey('banners', id), defaultForEmpresa(id, DEMO_BANNERS, []));
   },
-  saveBanners: (data: StoreBanner[], empresaId?: string) =>
-    writeLocal(scopedKey('banners', empresaId || localStore.getActiveEmpresaId()), data),
+  saveBanners: (data: StoreBanner[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('banners', id), data);
+    void idbStore.putCollection(id, 'banners', data);
+  },
   getEmployees: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<UserProfile[]>(scopedKey('employees', id), defaultForEmpresa(id, DEMO_EMPLOYEES, []));
   },
-  saveEmployees: (data: UserProfile[], empresaId?: string) =>
-    writeLocal(scopedKey('employees', empresaId || localStore.getActiveEmpresaId()), data),
+  saveEmployees: (data: UserProfile[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('employees', id), data);
+    void idbStore.putCollection(id, 'employees', data);
+  },
   getSales: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<Sale[]>(scopedKey('sales', id), defaultForEmpresa(id, DEMO_SALES, []));
   },
-  saveSales: (data: Sale[], empresaId?: string) =>
-    writeLocal(scopedKey('sales', empresaId || localStore.getActiveEmpresaId()), data),
+  saveSales: (data: Sale[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('sales', id), data);
+    void idbStore.putCollection(id, 'sales', data);
+  },
   getTickets: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<SupportTicket[]>(scopedKey('tickets', id), defaultForEmpresa(id, DEMO_TICKETS, []));
   },
-  saveTickets: (data: SupportTicket[], empresaId?: string) =>
-    writeLocal(scopedKey('tickets', empresaId || localStore.getActiveEmpresaId()), data),
+  saveTickets: (data: SupportTicket[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('tickets', id), data);
+    void idbStore.putCollection(id, 'tickets', data);
+  },
   getEmails: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<EmailLog[]>(scopedKey('emails', id), defaultForEmpresa(id, DEMO_EMAIL_LOGS, []));
   },
-  saveEmails: (data: EmailLog[], empresaId?: string) =>
-    writeLocal(scopedKey('emails', empresaId || localStore.getActiveEmpresaId()), data),
+  saveEmails: (data: EmailLog[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('emails', id), data);
+    void idbStore.putCollection(id, 'emails', data);
+  },
   getWishlist: (empresaId?: string) => {
     const id = empresaId || localStore.getActiveEmpresaId();
     return readLocal<string[]>(scopedKey('wishlist', id), defaultForEmpresa(id, ['P001', 'P003'], []));
   },
-  saveWishlist: (data: string[], empresaId?: string) =>
-    writeLocal(scopedKey('wishlist', empresaId || localStore.getActiveEmpresaId()), data),
+  saveWishlist: (data: string[], empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    writeLocal(scopedKey('wishlist', id), data);
+    void idbStore.putCollection(id, 'wishlist', data);
+  },
   getOfflineQueue: (): OfflineQueueItem[] =>
     readLocal<OfflineQueueItem[]>(LOCAL_KEYS.offlineQueue, []),
   saveOfflineQueue: (items: OfflineQueueItem[]) =>
     writeLocal(LOCAL_KEYS.offlineQueue, items),
   enqueueOfflineOp: (item: OfflineQueueItem): OfflineQueueItem[] => {
     const current = localStore.getOfflineQueue();
-    const next = [...current, item];
+    const next = [...current.filter((x) => x.id !== item.id), item];
     localStore.saveOfflineQueue(next);
+    void idbStore.enqueueOfflineOp(item);
     return next;
   },
   seedEmpresaCollections: (
@@ -391,6 +458,7 @@ export const localStore = {
     localStore.saveActiveEmpresaId('EMP001');
     localStore.saveEmpresas([DEMO_EMPRESA]);
     localStore.saveOfflineQueue([]);
+    void idbStore.clearOfflineQueue();
     writeLocal(LOCAL_KEYS.empresa, DEMO_EMPRESA);
     writeLocal(LOCAL_KEYS.products, DEMO_PRODUCTS);
     writeLocal(LOCAL_KEYS.customers, DEMO_CUSTOMERS);
@@ -406,7 +474,19 @@ export const localStore = {
 
 export async function flushOfflineQueueCloud(): Promise<number> {
   if (!isSupabaseConfigured) return 0;
-  const queue = localStore.getOfflineQueue();
+
+  const [idbQueue, lsQueue] = await Promise.all([
+    idbStore.getOfflineQueue<OfflineQueueItem>(),
+    Promise.resolve(localStore.getOfflineQueue()),
+  ]);
+
+  const mergedMap = new Map<string, OfflineQueueItem>();
+  for (const op of idbQueue) mergedMap.set(op.id, op);
+  for (const op of lsQueue) {
+    if (!mergedMap.has(op.id)) mergedMap.set(op.id, op);
+  }
+
+  const queue = Array.from(mergedMap.values());
   if (queue.length === 0) return 0;
 
   let synced = 0;
@@ -439,6 +519,7 @@ export async function flushOfflineQueueCloud(): Promise<number> {
       } else if (op.type === 'saveEmpresa') {
         await saveEmpresaConfigSupabase(op.empresa);
       }
+      await idbStore.removeOfflineOp(op.id);
       synced++;
     } catch {
       remaining.push(op);

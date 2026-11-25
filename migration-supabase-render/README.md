@@ -3,14 +3,14 @@
 ## Paso 1: Ejecutar el esquema SQL en tu repositorio/proyecto de Supabase
 1. Entra a tu proyecto en Supabase -> **SQL Editor** -> **New query**.
 2. Pega y ejecuta completo el archivo `supabase_schema.sql` (incluye las 9 tablas, políticas RLS por empresa, funciones atómicas `registrar_venta_pos` / `recibir_compra`, Realtime y el bucket público `yabi-media`).
-3. Crea tu usuario administrador en **Authentication -> Users -> Add user** y vincula su `uid` en `public.usuarios`:
+3. Crea tu cuenta de propietario directamente desde la app (**Conectar cuenta -> Registrar mi tienda (Dueño)**) o manualmente en **Authentication -> Users -> Add user** vinculando tu `uid` como `superadmin` con `plan = 'Oro'`:
    ```sql
    INSERT INTO public.empresas (id, nombre, ciudad, iva, plan)
-   VALUES ('EMP001', 'YA''BI Store', 'Cali', 0, 'Pro')
-   ON CONFLICT (id) DO NOTHING;
+   VALUES ('EMP001', 'DIGITAL YA''BI', 'Cali', 0, 'Oro')
+   ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, plan = 'Oro';
 
    INSERT INTO public.usuarios (uid, empresa_id, nombre, email, rol)
-   VALUES ('PEGAR_UUID_DE_AUTH_USERS', 'EMP001', 'Administrador', 'tu@correo.com', 'admin');
+   VALUES ('PEGAR_UUID_DE_AUTH_USERS', 'EMP001', 'Propietario', 'tu@correo.com', 'superadmin');
    ```
 
 ## Paso 2: Importar datos actuales desde Firebase

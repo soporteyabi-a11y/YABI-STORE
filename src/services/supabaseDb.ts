@@ -192,6 +192,51 @@ export const supabaseAuth = {
     if (error) throw error;
     return data;
   },
+  registerOwner: async (payload: {
+    email: string;
+    password: string;
+    nombreDueno: string;
+    nombreTienda: string;
+    nit?: string;
+    direccion?: string;
+    ciudad?: string;
+    telefono?: string;
+    iva?: number;
+  }): Promise<{needsEmailConfirmation: boolean}> => {
+    const sb = getClient();
+    const {data, error} = await sb.auth.signUp({
+      email: payload.email.trim(),
+      password: payload.password,
+      options: {
+        data: {
+          nombre: payload.nombreDueno.trim(),
+          owner_bootstrap: true,
+          nombre_tienda: payload.nombreTienda.trim(),
+          nit: payload.nit?.trim() || '',
+          direccion: payload.direccion?.trim() || '',
+          ciudad: payload.ciudad?.trim() || '',
+          telefono: payload.telefono?.trim() || '',
+          iva: Number(payload.iva ?? 0),
+        },
+      },
+    });
+    if (error) throw error;
+    if (!data.session) {
+      return {needsEmailConfirmation: true};
+    }
+    const {error: rpcErr} = await sb.rpc('registrar_dueno_yabi', {
+      p_empresa_id: 'EMP001',
+      p_nombre_tienda: payload.nombreTienda.trim() || "DIGITAL YA'BI",
+      p_nombre_dueno: payload.nombreDueno.trim() || 'Propietario',
+      p_nit: payload.nit?.trim() || null,
+      p_direccion: payload.direccion?.trim() || null,
+      p_ciudad: payload.ciudad?.trim() || null,
+      p_telefono: payload.telefono?.trim() || null,
+      p_iva: Number(payload.iva ?? 0),
+    });
+    if (rpcErr) throw rpcErr;
+    return {needsEmailConfirmation: false};
+  },
   logout: async () => {
     const sb = getClient();
     await sb.auth.signOut();
@@ -208,11 +253,32 @@ export async function loadUserContextSupabase(uid: string): Promise<{
   empresa: EmpresaConfig;
 }> {
   const sb = getClient();
-  const {data: userRow} = await sb
+  let {data: userRow} = await sb
     .from('usuarios')
     .select('*')
     .eq('uid', uid)
     .maybeSingle();
+
+  if (!userRow) {
+    const {data: authData} = await sb.auth.getUser();
+    const meta = authData.user?.user_metadata as Record<string, unknown> | undefined;
+    if (meta?.owner_bootstrap) {
+      const {error: rpcErr} = await sb.rpc('registrar_dueno_yabi', {
+        p_empresa_id: 'EMP001',
+        p_nombre_tienda: String(meta.nombre_tienda || "DIGITAL YA'BI"),
+        p_nombre_dueno: String(meta.nombre || 'Propietario'),
+        p_nit: meta.nit ? String(meta.nit) : null,
+        p_direccion: meta.direccion ? String(meta.direccion) : null,
+        p_ciudad: meta.ciudad ? String(meta.ciudad) : null,
+        p_telefono: meta.telefono ? String(meta.telefono) : null,
+        p_iva: Number(meta.iva ?? 0),
+      });
+      if (!rpcErr) {
+        const retry = await sb.from('usuarios').select('*').eq('uid', uid).maybeSingle();
+        userRow = retry.data;
+      }
+    }
+  }
 
   const profile = userRow ? mapEmployee(userRow) : null;
   const empresaId =

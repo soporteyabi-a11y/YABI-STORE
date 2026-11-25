@@ -11,7 +11,8 @@
         {
           "cameraPermission": "Permite escanear códigos de barras y QR en el POS e Inventario de YA'BI Store."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "ios": {
       "supportsTablet": true,
