@@ -2,7 +2,10 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {
   ArrowLeft,
   BarChart3,
+  Building2,
   Camera,
+  Check,
+  ChevronDown,
   CreditCard,
   Download,
   Headphones,
@@ -29,6 +32,7 @@ import {AuthModal} from './components/AuthModal';
 import {BannersView} from './components/BannersView';
 import {CustomersView} from './components/CustomersView';
 import {DashboardView} from './components/DashboardView';
+import {EmpresasView} from './components/EmpresasView';
 import {EmailsModal, ScannerModal} from './components/HeaderToolsModals';
 import {InventoryView} from './components/InventoryView';
 import {MobileNativeHubView} from './components/MobileNativeHubView';
@@ -44,6 +48,7 @@ import {TeamView} from './components/TeamView';
 import {useOnlineStatus, usePWAInstall} from './hooks/usePWAInstall';
 import {
   activeBackend,
+  cloneEmpresaStarterCloud,
   commitSaleCloud,
   createEmployeeCloud,
   deleteBannerCloud,
@@ -61,6 +66,7 @@ import {
   saveSupplierCloud,
   saveTicketCloud,
   subscribeEmpresaRealtime,
+  subscribeEmpresasListCloud,
   yabiAuth,
 } from './services/yabiDb';
 import type {
@@ -91,6 +97,7 @@ interface NavEntry {
 
 const SIDEBAR_ITEMS: NavEntry[] = [
   {id: 'dashboard', label: 'Dashboard', mobileLabel: 'Inicio', icon: LayoutDashboard, group: 'PRINCIPAL'},
+  {id: 'empresas', label: 'Multi-Empresas', mobileLabel: 'Empresas', icon: Building2, group: 'PRINCIPAL'},
   {id: 'team', label: 'Empleados', mobileLabel: 'Equipo', icon: UserCog, group: 'GESTIÓN'},
   {id: 'customers', label: 'Clientes', mobileLabel: 'Clientes', icon: Users, group: 'GESTIÓN'},
   {id: 'inventory', label: 'Productos', mobileLabel: 'Stock', icon: Package, group: 'GESTIÓN'},
@@ -119,6 +126,10 @@ export default function App() {
     }
   });
 
+  const [empresas, setEmpresas] = useState<EmpresaConfig[]>(() => localStore.getEmpresas());
+  const [activeEmpresaId, setActiveEmpresaId] = useState<string>(() =>
+    localStore.getActiveEmpresaId()
+  );
   const [empresa, setEmpresa] = useState<EmpresaConfig>(() => localStore.getEmpresa());
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [dataSource, setDataSource] = useState<'firebase' | 'local'>('local');
@@ -139,6 +150,7 @@ export default function App() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [emailsOpen, setEmailsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [empresaMenuOpen, setEmpresaMenuOpen] = useState(false);
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [receiptCash, setReceiptCash] = useState<number | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -174,14 +186,14 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    let unsubFirestore: (() => void) | null = null;
+    let unsubEmpresas: (() => void) | null = null;
     let unsubAuth: (() => void) | null = null;
 
     try {
       unsubAuth = yabiAuth.subscribe(async (fbUser) => {
-        if (unsubFirestore) {
-          unsubFirestore();
-          unsubFirestore = null;
+        if (unsubEmpresas) {
+          unsubEmpresas();
+          unsubEmpresas = null;
         }
         if (fbUser) {
           setLoading(true);
@@ -194,39 +206,41 @@ export default function App() {
               rol: 'admin',
               empresaId: ctx.empresa.id,
             };
-            setUserProfile(resolvedProfile);
-            setEmpresa(ctx.empresa);
+            const isSuper = resolvedProfile.rol === 'superadmin';
+            const preferredId = isSuper
+              ? localStore.getActiveEmpresaId() || ctx.empresa.id
+              : ctx.empresa.id;
 
-            unsubFirestore = subscribeEmpresaRealtime(
+            setUserProfile(resolvedProfile);
+            setActiveEmpresaId(preferredId);
+            setEmpresa(
+              preferredId === ctx.empresa.id
+                ? ctx.empresa
+                : {...ctx.empresa, id: preferredId}
+            );
+
+            unsubEmpresas = subscribeEmpresasListCloud(
+              isSuper,
               ctx.empresa.id,
-              resolvedProfile.rol === 'superadmin',
-              {
-                onEmpresa: (e) => setEmpresa(e),
-                onProducts: (list) => setProducts(list),
-                onCustomers: (list) => setCustomers(list),
-                onSuppliers: (list) => setSuppliers(list),
-                onPurchases: (list) => setPurchases(list),
-                onBanners: (list) => setBanners(list),
-                onSales: (list) => setSales(list),
-                onEmployees: (list) => setEmployees(list),
-                onTickets: (list) => setTickets(list),
-                onSyncStatus: (connected) => setDataSource(connected ? 'firebase' : 'local'),
+              (list) => {
+                if (list.length > 0) {
+                  setEmpresas(list);
+                }
               }
             );
-          } finally {
+          } catch {
             setLoading(false);
           }
         } else {
           setUserProfile(null);
-          setEmpresa(localStore.getEmpresa());
-          setProducts(localStore.getProducts());
-          setCustomers(localStore.getCustomers());
-          setSuppliers(localStore.getSuppliers());
-          setPurchases(localStore.getPurchases());
-          setBanners(localStore.getBanners());
-          setEmployees(localStore.getEmployees());
-          setSales(localStore.getSales());
-          setTickets(localStore.getTickets());
+          const localList = localStore.getEmpresas();
+          const storedId = localStore.getActiveEmpresaId();
+          const validId = localList.some((e) => e.id === storedId)
+            ? storedId
+            : localList[0]?.id || 'EMP001';
+          localStore.saveActiveEmpresaId(validId);
+          setEmpresas(localList);
+          setActiveEmpresaId(validId);
           setDataSource('local');
           setLoading(false);
         }
@@ -237,11 +251,60 @@ export default function App() {
 
     return () => {
       if (unsubAuth) unsubAuth();
-      if (unsubFirestore) unsubFirestore();
+      if (unsubEmpresas) unsubEmpresas();
     };
   }, []);
 
-  // Reintento automático de ventas guardadas offline al recuperar conexión y sesión Firebase
+  useEffect(() => {
+    if (!userProfile) {
+      setEmpresa(localStore.getEmpresa(activeEmpresaId));
+      setProducts(localStore.getProducts(activeEmpresaId));
+      setCustomers(localStore.getCustomers(activeEmpresaId));
+      setSuppliers(localStore.getSuppliers(activeEmpresaId));
+      setPurchases(localStore.getPurchases(activeEmpresaId));
+      setBanners(localStore.getBanners(activeEmpresaId));
+      setEmployees(localStore.getEmployees(activeEmpresaId));
+      setSales(localStore.getSales(activeEmpresaId));
+      setTickets(localStore.getTickets(activeEmpresaId));
+      setEmails(localStore.getEmails(activeEmpresaId));
+      setWishlist(localStore.getWishlist(activeEmpresaId));
+      setDataSource('local');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const isSuper = userProfile.rol === 'superadmin';
+    const unsubCloud = subscribeEmpresaRealtime(activeEmpresaId, isSuper, {
+      onEmpresa: (e) => {
+        setEmpresa(e);
+        setEmpresas((prev) =>
+          prev.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [...prev, e]
+        );
+      },
+      onProducts: (list) => setProducts(list),
+      onCustomers: (list) => setCustomers(list),
+      onSuppliers: (list) => setSuppliers(list),
+      onPurchases: (list) => setPurchases(list),
+      onBanners: (list) => setBanners(list),
+      onSales: (list) => setSales(list),
+      onEmployees: (list) => setEmployees(list),
+      onTickets: (list) => setTickets(list),
+      onSyncStatus: (connected) => {
+        setDataSource(connected ? 'firebase' : 'local');
+        setLoading(false);
+      },
+    });
+
+    const safetyTimer = setTimeout(() => setLoading(false), 2500);
+
+    return () => {
+      clearTimeout(safetyTimer);
+      unsubCloud();
+    };
+  }, [userProfile, activeEmpresaId]);
+
+  // Reintento automático de ventas guardadas offline al recuperar conexión y sesión en la nube
   useEffect(() => {
     if (!isOnline || !userProfile) return;
     const pending = sales.filter((s) => s.pendingSync);
@@ -266,10 +329,10 @@ export default function App() {
           const updated = prev.map((s) =>
             syncedIds.has(s.id) ? {...s, pendingSync: false} : s
           );
-          localStore.saveSales(updated);
+          localStore.saveSales(updated, empresa.id);
           return updated;
         });
-        notify(`${syncedCount} venta(s) offline sincronizadas con Firebase`, 'success');
+        notify(`${syncedCount} venta(s) offline sincronizadas en la nube`, 'success');
       }
     })();
 
@@ -286,7 +349,7 @@ export default function App() {
     };
     const next = [newLog, ...emails].slice(0, 30);
     setEmails(next);
-    localStore.saveEmails(next);
+    localStore.saveEmails(next, empresa.id);
   };
 
   const handleCompleteSale = async (payload: {
@@ -353,8 +416,8 @@ export default function App() {
       const nextSales = [sale, ...sales];
       setProducts(nextProducts);
       setSales(nextSales);
-      localStore.saveProducts(nextProducts);
-      localStore.saveSales(nextSales);
+      localStore.saveProducts(nextProducts, empresa.id);
+      localStore.saveSales(nextSales, empresa.id);
     }
 
     if (userProfile && isOnline) {
@@ -365,8 +428,8 @@ export default function App() {
         const nextSales = [offlineSale, ...sales];
         setProducts(nextProducts);
         setSales(nextSales);
-        localStore.saveProducts(nextProducts);
-        localStore.saveSales(nextSales);
+        localStore.saveProducts(nextProducts, empresa.id);
+        localStore.saveSales(nextSales, empresa.id);
         notify('Venta guardada localmente; se sincronizará al volver internet', 'info');
       }
     } else if (userProfile && !isOnline) {
@@ -374,8 +437,8 @@ export default function App() {
       const nextSales = [offlineSale, ...sales];
       setProducts(nextProducts);
       setSales(nextSales);
-      localStore.saveProducts(nextProducts);
-      localStore.saveSales(nextSales);
+      localStore.saveProducts(nextProducts, empresa.id);
+      localStore.saveSales(nextSales, empresa.id);
       notify('Sin internet: venta en cola de sincronización', 'info');
     }
 
@@ -396,7 +459,7 @@ export default function App() {
     if (dataSource !== 'firebase') {
       const next = sales.map((s) => (s.id === updatedSale.id ? updatedSale : s));
       setSales(next);
-      localStore.saveSales(next);
+      localStore.saveSales(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveSaleCloud(empresa.id, updatedSale);
@@ -411,7 +474,7 @@ export default function App() {
         ? products.map((p) => (p.id === product.id ? product : p))
         : [product, ...products];
       setProducts(next);
-      localStore.saveProducts(next);
+      localStore.saveProducts(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveProductCloud(empresa.id, product);
@@ -423,7 +486,7 @@ export default function App() {
     if (dataSource !== 'firebase') {
       const next = products.filter((p) => p.id !== productId);
       setProducts(next);
-      localStore.saveProducts(next);
+      localStore.saveProducts(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await deleteProductCloud(empresa.id, productId);
@@ -438,7 +501,7 @@ export default function App() {
     if (dataSource !== 'firebase') {
       const next = products.map((p) => (p.id === productId ? updated : p));
       setProducts(next);
-      localStore.saveProducts(next);
+      localStore.saveProducts(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveProductCloud(empresa.id, updated);
@@ -449,7 +512,7 @@ export default function App() {
     if (dataSource !== 'firebase') {
       const next = [purchase, ...purchases];
       setPurchases(next);
-      localStore.savePurchases(next);
+      localStore.savePurchases(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await savePurchaseCloud(empresa.id, purchase);
@@ -471,8 +534,8 @@ export default function App() {
       );
       setPurchases(nextPurchases);
       setProducts(nextProducts);
-      localStore.savePurchases(nextPurchases);
-      localStore.saveProducts(nextProducts);
+      localStore.savePurchases(nextPurchases, empresa.id);
+      localStore.saveProducts(nextProducts, empresa.id);
     }
     if (userProfile && isOnline) {
       await receivePurchaseCloud(empresa.id, purchase.id, purchase.productoId, newStock);
@@ -492,7 +555,7 @@ export default function App() {
         ? customers.map((c) => (c.id === customer.id ? customer : c))
         : [customer, ...customers];
       setCustomers(next);
-      localStore.saveCustomers(next);
+      localStore.saveCustomers(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveCustomerCloud(empresa.id, customer);
@@ -507,7 +570,7 @@ export default function App() {
         ? suppliers.map((s) => (s.id === supplier.id ? supplier : s))
         : [supplier, ...suppliers];
       setSuppliers(next);
-      localStore.saveSuppliers(next);
+      localStore.saveSuppliers(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveSupplierCloud(empresa.id, supplier);
@@ -544,7 +607,7 @@ export default function App() {
     };
     const next = [localEmp, ...employees];
     setEmployees(next);
-    localStore.saveEmployees(next);
+    localStore.saveEmployees(next, empresa.id);
     notify('Empleado guardado en almacenamiento local', 'info');
   };
 
@@ -567,13 +630,72 @@ export default function App() {
     }
     const next = employees.filter((e) => e.uid !== uid);
     setEmployees(next);
-    localStore.saveEmployees(next);
+    localStore.saveEmployees(next, empresa.id);
     notify('Empleado eliminado del almacenamiento local', 'info');
   };
 
-  const handleSaveEmpresa = async (updated: EmpresaConfig) => {
-    setEmpresa(updated);
-    localStore.saveEmpresa(updated);
+  const handleSwitchEmpresa = (targetId: string) => {
+    if (!targetId || targetId === activeEmpresaId) {
+      setEmpresaMenuOpen(false);
+      return;
+    }
+    if (userProfile && userProfile.rol !== 'superadmin' && targetId !== userProfile.empresaId) {
+      notify('Tu cuenta solo tiene acceso a su sede asignada', 'error');
+      return;
+    }
+    const target = empresas.find((e) => e.id === targetId);
+    if (target && target.activa === false) {
+      notify(`La empresa ${target.nombre} está suspendida. Reactívala para operar.`, 'error');
+      return;
+    }
+    localStore.saveActiveEmpresaId(targetId);
+    setActiveEmpresaId(targetId);
+    if (target) setEmpresa(target);
+    setEmpresaMenuOpen(false);
+    notify(`Operando en ${target?.nombre || targetId}`, 'success');
+  };
+
+  const handleSaveEmpresa = async (
+    updated: EmpresaConfig,
+    options?: {isNew?: boolean; cloneFromCurrent?: boolean}
+  ) => {
+    if (options?.isNew) {
+      if (empresas.some((e) => e.id === updated.id)) {
+        notify(`Ya existe una empresa con el código ${updated.id}`, 'error');
+        return;
+      }
+      if (!userProfile) {
+        localStore.seedEmpresaCollections(
+          updated,
+          options.cloneFromCurrent ? {products, customers, banners} : undefined
+        );
+        setEmpresas(localStore.getEmpresas());
+      } else {
+        setEmpresas((prev) => [...prev, updated]);
+        if (isOnline) {
+          await saveEmpresaConfigCloud(updated);
+          if (options.cloneFromCurrent) {
+            await cloneEmpresaStarterCloud(updated.id, {products, customers, banners});
+          }
+        }
+      }
+      localStore.saveActiveEmpresaId(updated.id);
+      setActiveEmpresaId(updated.id);
+      setEmpresa(updated);
+      notify(`Empresa ${updated.nombre} (${updated.id}) creada y activada`, 'success');
+      return;
+    }
+
+    const nextList = localStore.upsertEmpresa(updated);
+    setEmpresas((prev) => {
+      if (prev.length === 0) return nextList;
+      return prev.some((e) => e.id === updated.id)
+        ? prev.map((e) => (e.id === updated.id ? updated : e))
+        : [...prev, updated];
+    });
+    if (updated.id === empresa.id) {
+      setEmpresa(updated);
+    }
     if (userProfile && isOnline) {
       await saveEmpresaConfigCloud(updated);
     }
@@ -593,7 +715,7 @@ export default function App() {
         ? banners.map((b) => (b.id === banner.id ? banner : b))
         : [banner, ...banners];
       setBanners(next);
-      localStore.saveBanners(next);
+      localStore.saveBanners(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveBannerCloud(empresa.id, banner);
@@ -605,7 +727,7 @@ export default function App() {
     if (dataSource !== 'firebase') {
       const next = banners.filter((b) => b.id !== bannerId);
       setBanners(next);
-      localStore.saveBanners(next);
+      localStore.saveBanners(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await deleteBannerCloud(empresa.id, bannerId);
@@ -617,7 +739,7 @@ export default function App() {
     if (dataSource !== 'firebase') {
       const next = [ticket, ...tickets];
       setTickets(next);
-      localStore.saveTickets(next);
+      localStore.saveTickets(next, empresa.id);
     }
     if (userProfile && isOnline) {
       await saveTicketCloud(ticket);
@@ -635,7 +757,7 @@ export default function App() {
       ? wishlist.filter((id) => id !== productId)
       : [...wishlist, productId];
     setWishlist(next);
-    localStore.saveWishlist(next);
+    localStore.saveWishlist(next, empresa.id);
   };
 
   const handleExportActiveCSV = () => {
@@ -695,6 +817,7 @@ export default function App() {
   };
 
   const getSidebarCount = (id: AppTab): number | null => {
+    if (id === 'empresas') return empresas.length > 1 ? empresas.length : null;
     if (id === 'customers') return customers.length;
     if (id === 'inventory') return products.length;
     if (id === 'suppliers') return suppliers.length;
@@ -702,6 +825,8 @@ export default function App() {
     if (id === 'purchases') return purchases.length;
     return null;
   };
+
+  const canSwitchEmpresas = !userProfile || userProfile.rol === 'superadmin';
 
   const activeTitle =
     activeTab === 'storefront'
@@ -734,27 +859,91 @@ export default function App() {
       </svg>
       {/* Desktop Left Sidebar (240px) */}
       <aside className="hidden lg:flex lg:flex-col lg:w-60 lg:fixed lg:inset-y-0 lg:left-0 z-30 border-r border-slate-200/80 dark:border-[#0D1E35] bg-white/70 dark:bg-[#070E1A]/60">
-        {/* Brand Header */}
-        <div className="px-5 py-4 border-b border-slate-200 dark:border-[#0D1E35]">
-          <div className="font-display text-xl font-extrabold tracking-tight whitespace-nowrap">
+        {/* Brand Header & Multi-Empresa Switcher */}
+        <div className="px-4 py-4 border-b border-slate-200 dark:border-[#0D1E35] relative">
+          <div className="px-1 font-display text-xl font-extrabold tracking-tight whitespace-nowrap">
             <span className="text-slate-900 dark:text-white">YA&apos;BI </span>
             <span className="text-sky-600 dark:text-[#00C8FF]">STORE</span>
           </div>
-          <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
-            {empresa.nombre}
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded border border-purple-500/50 bg-purple-500/10 text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-300">
-              {(empresa.plan || 'Pro').toUpperCase()}
-            </span>
-            <span className="text-[10px] text-slate-400 truncate">
+
+          <button
+            type="button"
+            onClick={() => setEmpresaMenuOpen((o) => !o)}
+            className="mt-2.5 w-full p-2.5 rounded-xl border border-slate-200/80 dark:border-[#0D1E35] bg-slate-50/70 dark:bg-[#0B1525]/60 hover:border-[#00C8FF] text-left transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white truncate">
+                  {empresa.nombre}
+                </p>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] font-semibold text-sky-600 dark:text-[#00C8FF]">
+                    {empresa.id}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded border border-purple-500/50 bg-purple-500/10 text-[9px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-300">
+                    {(empresa.plan || 'Pro').toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${
+                  empresaMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400 truncate">
               {dataSource === 'firebase'
                 ? activeBackend === 'supabase'
                   ? 'Supabase Live'
                   : 'Firebase Live'
                 : 'Caja Local'}
-            </span>
-          </div>
+              {canSwitchEmpresas && empresas.length > 1 ? ` · ${empresas.length} empresas` : ''}
+            </p>
+          </button>
+
+          {empresaMenuOpen && (
+            <div className="absolute left-3 right-3 top-full mt-1.5 z-50 rounded-2xl border border-slate-200 dark:border-[#0D1E35] bg-white dark:bg-[#0B1525] shadow-xl p-2 space-y-1">
+              <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Cambiar empresa
+              </p>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {(empresas.length > 0 ? empresas : [empresa]).map((empItem) => {
+                  const isCurrent = empItem.id === empresa.id;
+                  const disabled = empItem.activa === false || (!canSwitchEmpresas && !isCurrent);
+                  return (
+                    <button
+                      key={empItem.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleSwitchEmpresa(empItem.id)}
+                      className={`w-full px-2.5 py-2 rounded-xl text-left flex items-center justify-between gap-2 text-xs transition-colors ${
+                        isCurrent
+                          ? 'bg-sky-500/15 dark:bg-[#00C8FF]/15 text-sky-700 dark:text-[#00C8FF] font-semibold'
+                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#070E1A] disabled:opacity-45'
+                      }`}
+                    >
+                      <span className="min-w-0 truncate">
+                        <span className="font-mono text-[10px] mr-1.5">{empItem.id}</span>
+                        {empItem.nombre}
+                      </span>
+                      {isCurrent && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmpresaMenuOpen(false);
+                  setActiveTab('empresas');
+                }}
+                className="w-full mt-1 px-2.5 py-2 rounded-xl border-t border-slate-100 dark:border-[#0D1E35] text-xs font-semibold text-sky-600 dark:text-[#00C8FF] hover:bg-slate-50 dark:hover:bg-[#070E1A] flex items-center gap-2"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                Gestionar Multi-Empresas
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Grouped Navigation */}
@@ -853,6 +1042,16 @@ export default function App() {
             <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
               {activeTitle}
             </h1>
+            <button
+              type="button"
+              onClick={() => setActiveTab('empresas')}
+              title="Ver o cambiar empresa activa"
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-[#0D1E35] bg-white/65 dark:bg-[#0B1525]/50 hover:border-[#00C8FF] text-[11px] font-semibold text-slate-700 dark:text-slate-200 max-w-[180px]"
+            >
+              <Building2 className="w-3.5 h-3.5 text-[#00C8FF] shrink-0" />
+              <span className="font-mono text-sky-600 dark:text-[#00C8FF] shrink-0">{empresa.id}</span>
+              <span className="truncate">{empresa.nombre}</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -953,9 +1152,27 @@ export default function App() {
                   onQuickRestock={handleQuickRestock}
                 />
               )}
+              {activeTab === 'empresas' && (
+                <EmpresasView
+                  empresas={empresas}
+                  activeEmpresa={empresa}
+                  activeProductsCount={products.length}
+                  activeCustomersCount={customers.length}
+                  activeSales={sales}
+                  employees={employees}
+                  userProfile={userProfile}
+                  isCloudConnected={dataSource === 'firebase'}
+                  onSwitchEmpresa={handleSwitchEmpresa}
+                  onSaveEmpresa={handleSaveEmpresa}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
               {activeTab === 'team' && (
                 <TeamView
                   employees={employees}
+                  activeEmpresaId={empresa.id}
+                  activeEmpresaNombre={empresa.nombre}
+                  isSuperAdmin={!userProfile || userProfile.rol === 'superadmin'}
                   currentUserUid={userProfile?.uid}
                   isCloudConnected={dataSource === 'firebase'}
                   onCreateEmployee={handleCreateEmployee}
@@ -1044,6 +1261,7 @@ export default function App() {
                   darkMode={darkMode}
                   onToggleDarkMode={() => setDarkMode((d) => !d)}
                   empresa={empresa}
+                  empresas={empresas}
                   userProfile={userProfile}
                   dataSource={dataSource}
                   products={products}

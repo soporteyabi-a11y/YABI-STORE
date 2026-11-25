@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   setDoc,
@@ -16,8 +17,10 @@ import {isRnSupabaseConfigured} from '../config/supabase';
 import {
   commitSaleSupabase,
   deleteBannerSupabase,
+  listEmpresasSupabase,
   receivePurchaseSupabase,
   resolveEmpresaIdSupabase,
+  resolveUserContextSupabase,
   saveBannerSupabase,
   saveCustomerSupabase,
   saveEmpresaConfigSupabase,
@@ -219,14 +222,75 @@ export function formatReceiptText(
     .join('\n');
 }
 
+export async function resolveUserContext(uid: string): Promise<{
+  empresaId: string;
+  isSuperAdmin: boolean;
+}> {
+  if (isRnSupabaseConfigured) {
+    return resolveUserContextSupabase(uid);
+  }
+  const snap = await getDoc(doc(db, 'usuarios', uid));
+  if (!snap.exists()) return {empresaId: 'EMP001', isSuperAdmin: false};
+  const data = snap.data();
+  const rawEmp = data?.empresaId ? String(data.empresaId) : '';
+  const isSuperAdmin = String(data?.rol || '') === 'superadmin';
+  const empresaId =
+    rawEmp && rawEmp !== '__super__' && rawEmp !== '__default__' ? rawEmp : 'EMP001';
+  return {empresaId, isSuperAdmin};
+}
+
 export async function resolveEmpresaId(uid: string): Promise<string> {
   if (isRnSupabaseConfigured) {
     return resolveEmpresaIdSupabase(uid);
   }
-  const snap = await getDoc(doc(db, 'usuarios', uid));
-  if (!snap.exists()) return 'EMP001';
-  const emp = snap.data()?.empresaId;
-  return emp && emp !== '__super__' && emp !== '__default__' ? emp : 'EMP001';
+  const ctx = await resolveUserContext(uid);
+  return ctx.empresaId;
+}
+
+export async function listAccessibleEmpresas(
+  isSuperAdmin: boolean,
+  assignedEmpresaId: string
+): Promise<RnEmpresa[]> {
+  if (isRnSupabaseConfigured) {
+    return listEmpresasSupabase(isSuperAdmin, assignedEmpresaId);
+  }
+  if (isSuperAdmin) {
+    const snap = await getDocs(collection(db, 'empresas'));
+    return snap.docs
+      .map((d) => {
+        const raw = d.data() as Record<string, unknown>;
+        return {
+          id: d.id,
+          nombre: String(raw.nombre || "DIGITAL YA'BI"),
+          nit: raw.nit ? String(raw.nit) : undefined,
+          direccion: raw.direccion ? String(raw.direccion) : undefined,
+          ciudad: raw.ciudad ? String(raw.ciudad) : undefined,
+          telefono: raw.telefono ? String(raw.telefono) : undefined,
+          iva: raw.iva !== null && raw.iva !== undefined ? Number(raw.iva) : 0,
+          plan: (raw.plan as RnEmpresa['plan']) || 'Pro',
+          color: raw.color ? String(raw.color) : '#00C8FF',
+          activa: raw.activa !== false,
+        };
+      })
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
+  const docSnap = await getDoc(doc(db, 'empresas', assignedEmpresaId));
+  if (!docSnap.exists()) return [];
+  const raw = docSnap.data() as Record<string, unknown>;
+  return [
+    {
+      id: docSnap.id,
+      nombre: String(raw.nombre || "DIGITAL YA'BI"),
+      nit: raw.nit ? String(raw.nit) : undefined,
+      direccion: raw.direccion ? String(raw.direccion) : undefined,
+      ciudad: raw.ciudad ? String(raw.ciudad) : undefined,
+      telefono: raw.telefono ? String(raw.telefono) : undefined,
+      iva: raw.iva !== null && raw.iva !== undefined ? Number(raw.iva) : 0,
+      plan: (raw.plan as RnEmpresa['plan']) || 'Pro',
+      color: raw.color ? String(raw.color) : '#00C8FF',
+      activa: raw.activa !== false,
+    },
+  ];
 }
 
 export function subscribeEmpresaRealtime(

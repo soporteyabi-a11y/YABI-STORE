@@ -30,6 +30,7 @@ interface MobileNativeHubViewProps {
   darkMode: boolean;
   onToggleDarkMode: () => void;
   empresa: EmpresaConfig;
+  empresas?: EmpresaConfig[];
   userProfile: UserProfile | null;
   dataSource: 'firebase' | 'local';
   products: Product[];
@@ -105,6 +106,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   darkMode,
   onToggleDarkMode,
   empresa,
+  empresas = [],
   userProfile,
   dataSource,
   products,
@@ -186,6 +188,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   const generateSqlText = () =>
     buildFullSupabaseSql({
       empresa,
+      extraEmpresas: empresas,
       products,
       customers,
       suppliers,

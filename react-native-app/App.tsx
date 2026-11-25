@@ -27,7 +27,8 @@ import {
   Users,
 } from 'lucide-react-native';
 import {
-  resolveEmpresaId,
+  listAccessibleEmpresas,
+  resolveUserContext,
   rnActiveBackend,
   rnAuth,
   subscribeEmpresaRealtime,
@@ -77,6 +78,8 @@ const YabiNavTheme = {
 
 export default function App() {
   const [empresaId, setEmpresaId] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [empresas, setEmpresas] = useState<RnEmpresa[]>([]);
   const [empresa, setEmpresa] = useState<RnEmpresa>(DEFAULT_RN_EMPRESA);
   const [userEmail, setUserEmail] = useState('');
   const [products, setProducts] = useState<RnProduct[]>([]);
@@ -94,29 +97,23 @@ export default function App() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let unsubCloud: (() => void) | null = null;
     const unsubAuth = rnAuth.subscribe(async (user) => {
-      if (unsubCloud) {
-        unsubCloud();
-        unsubCloud = null;
-      }
       if (user) {
         setUserEmail(user.email || '');
-        const empId = await resolveEmpresaId(user.uid);
-        setEmpresaId(empId);
-        setEmpresa((prev) => ({...prev, id: empId}));
-        unsubCloud = subscribeEmpresaRealtime(empId, {
-          onEmpresa: setEmpresa,
-          onProducts: setProducts,
-          onSales: setSales,
-          onPurchases: setPurchases,
-          onCustomers: setCustomers,
-          onSuppliers: setSuppliers,
-          onBanners: setBanners,
-          onTickets: setTickets,
-        });
+        const ctx = await resolveUserContext(user.uid);
+        setIsSuperAdmin(ctx.isSuperAdmin);
+        setEmpresaId(ctx.empresaId);
+        setEmpresa((prev) => ({...prev, id: ctx.empresaId}));
+        try {
+          const list = await listAccessibleEmpresas(ctx.isSuperAdmin, ctx.empresaId);
+          setEmpresas(list);
+        } catch {
+          setEmpresas([]);
+        }
       } else {
         setEmpresaId(null);
+        setIsSuperAdmin(false);
+        setEmpresas([]);
         setEmpresa(DEFAULT_RN_EMPRESA);
         setUserEmail('');
         setProducts([]);
@@ -131,9 +128,30 @@ export default function App() {
     });
     return () => {
       unsubAuth();
-      if (unsubCloud) unsubCloud();
     };
   }, []);
+
+  useEffect(() => {
+    if (!empresaId) return;
+    const unsubCloud = subscribeEmpresaRealtime(empresaId, {
+      onEmpresa: (emp) => {
+        setEmpresa(emp);
+        setEmpresas((prev) =>
+          prev.some((e) => e.id === emp.id) ? prev.map((e) => (e.id === emp.id ? emp : e)) : prev
+        );
+      },
+      onProducts: setProducts,
+      onSales: setSales,
+      onPurchases: setPurchases,
+      onCustomers: setCustomers,
+      onSuppliers: setSuppliers,
+      onBanners: setBanners,
+      onTickets: setTickets,
+    });
+    return () => {
+      unsubCloud();
+    };
+  }, [empresaId]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -268,6 +286,50 @@ export default function App() {
           </Text>
           <Text style={styles.empEmail}>{userEmail}</Text>
         </View>
+
+        {isSuperAdmin && empresas.length > 1 && (
+          <View style={styles.switcherCard}>
+            <Text style={styles.switcherTitle}>Multi-Empresas ({empresas.length})</Text>
+            <View style={styles.switcherList}>
+              {empresas.map((empItem) => {
+                const isActive = empItem.id === empresaId;
+                return (
+                  <Pressable
+                    key={empItem.id}
+                    disabled={empItem.activa === false}
+                    onPress={() => {
+                      setEmpresaId(empItem.id);
+                      setEmpresa(empItem);
+                    }}
+                    style={[
+                      styles.switcherBtn,
+                      isActive ? styles.switcherBtnActive : null,
+                      empItem.activa === false ? {opacity: 0.45} : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.switcherBtnCode,
+                        isActive ? {color: '#050A14'} : null,
+                      ]}
+                    >
+                      {empItem.id}
+                    </Text>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.switcherBtnName,
+                        isActive ? {color: '#050A14'} : null,
+                      ]}
+                    >
+                      {empItem.nombre}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         <View style={styles.grid}>
           <Pressable onPress={() => setMoreModule('purchases')} style={styles.moduleCard}>
@@ -478,4 +540,35 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   logoutText: {color: '#F87171', fontSize: 14, fontWeight: '700'},
+  switcherCard: {
+    backgroundColor: '#0B1525',
+    borderWidth: 1,
+    borderColor: 'rgba(0,200,255,0.2)',
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
+  },
+  switcherTitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  switcherList: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
+  switcherBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    backgroundColor: '#070E1A',
+    maxWidth: '48%',
+  },
+  switcherBtnActive: {
+    backgroundColor: '#00C8FF',
+    borderColor: '#00C8FF',
+  },
+  switcherBtnCode: {color: '#00C8FF', fontSize: 10, fontWeight: '800'},
+  switcherBtnName: {color: '#F8FAFC', fontSize: 12, fontWeight: '600'},
 });

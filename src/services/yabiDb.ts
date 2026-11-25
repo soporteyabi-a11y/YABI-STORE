@@ -50,6 +50,7 @@ import {
   saveSupplierSupabase,
   saveTicketSupabase,
   subscribeEmpresaRealtimeSupabase,
+  subscribeEmpresasListSupabase,
   supabaseAuth,
   uploadImageToSupabaseStorage,
   type AuthSessionUser,
@@ -70,6 +71,8 @@ import {
 export const activeBackend: 'supabase' | 'firebase' = isSupabaseConfigured ? 'supabase' : 'firebase';
 
 const LOCAL_KEYS = {
+  empresasList: 'yabi_v2_empresas_list',
+  activeEmpresaId: 'yabi_v2_active_empresa_id',
   products: 'yabi_v2_products',
   customers: 'yabi_v2_customers',
   suppliers: 'yabi_v2_suppliers',
@@ -82,6 +85,17 @@ const LOCAL_KEYS = {
   wishlist: 'yabi_v2_wishlist',
   empresa: 'yabi_v2_empresa',
 };
+
+function scopedKey(
+  collectionKey: keyof Omit<typeof LOCAL_KEYS, 'empresasList' | 'activeEmpresaId'>,
+  empresaId?: string
+): string {
+  const id = (empresaId || 'EMP001').trim() || 'EMP001';
+  if (id === 'EMP001') {
+    return LOCAL_KEYS[collectionKey];
+  }
+  return `yabi_v2_emp_${id}_${collectionKey}`;
+}
 
 function readLocal<T>(key: string, fallback: T): T {
   try {
@@ -154,6 +168,41 @@ export interface LiveSyncCallbacks {
   onEmployees: (employees: UserProfile[]) => void;
   onTickets: (tickets: SupportTicket[]) => void;
   onSyncStatus: (connected: boolean) => void;
+}
+
+export function subscribeEmpresasListCloud(
+  isSuperAdmin: boolean,
+  assignedEmpresaId: string,
+  onEmpresas: (list: EmpresaConfig[]) => void
+): () => void {
+  if (isSupabaseConfigured) {
+    return subscribeEmpresasListSupabase(isSuperAdmin, assignedEmpresaId, onEmpresas);
+  }
+  if (isSuperAdmin) {
+    return onSnapshot(
+      collection(db, 'empresas'),
+      (snap) => {
+        const list = snap.docs
+          .map((d) => ({id: d.id, ...d.data()}) as EmpresaConfig)
+          .sort((a, b) => a.id.localeCompare(b.id));
+        onEmpresas(list);
+      },
+      () => {
+        // ignore restricted reads
+      }
+    );
+  }
+  return onSnapshot(
+    doc(db, 'empresas', assignedEmpresaId),
+    (snap) => {
+      if (snap.exists()) {
+        onEmpresas([{id: snap.id, ...snap.data()} as EmpresaConfig]);
+      }
+    },
+    () => {
+      // ignore restricted reads
+    }
+  );
 }
 
 export function subscribeEmpresaRealtime(
@@ -311,30 +360,194 @@ export function subscribeEmpresaRealtime(
   };
 }
 
+export interface LocalEmpresaSnapshot {
+  empresa: EmpresaConfig;
+  productsCount: number;
+  customersCount: number;
+  salesCount: number;
+  revenue: number;
+}
+
+function defaultForEmpresa<T>(empId: string, emp001Fallback: T, emptyFallback: T): T {
+  return empId === 'EMP001' ? emp001Fallback : emptyFallback;
+}
+
 export const localStore = {
-  getEmpresa: () => readLocal<EmpresaConfig>(LOCAL_KEYS.empresa, DEMO_EMPRESA),
-  saveEmpresa: (data: EmpresaConfig) => writeLocal(LOCAL_KEYS.empresa, data),
-  getProducts: () => readLocal<Product[]>(LOCAL_KEYS.products, DEMO_PRODUCTS),
-  saveProducts: (data: Product[]) => writeLocal(LOCAL_KEYS.products, data),
-  getCustomers: () => readLocal<Customer[]>(LOCAL_KEYS.customers, DEMO_CUSTOMERS),
-  saveCustomers: (data: Customer[]) => writeLocal(LOCAL_KEYS.customers, data),
-  getSuppliers: () => readLocal<Supplier[]>(LOCAL_KEYS.suppliers, DEMO_SUPPLIERS),
-  saveSuppliers: (data: Supplier[]) => writeLocal(LOCAL_KEYS.suppliers, data),
-  getPurchases: () => readLocal<Purchase[]>(LOCAL_KEYS.purchases, DEMO_PURCHASES),
-  savePurchases: (data: Purchase[]) => writeLocal(LOCAL_KEYS.purchases, data),
-  getBanners: () => readLocal<StoreBanner[]>(LOCAL_KEYS.banners, DEMO_BANNERS),
-  saveBanners: (data: StoreBanner[]) => writeLocal(LOCAL_KEYS.banners, data),
-  getEmployees: () => readLocal<UserProfile[]>(LOCAL_KEYS.employees, DEMO_EMPLOYEES),
-  saveEmployees: (data: UserProfile[]) => writeLocal(LOCAL_KEYS.employees, data),
-  getSales: () => readLocal<Sale[]>(LOCAL_KEYS.sales, DEMO_SALES),
-  saveSales: (data: Sale[]) => writeLocal(LOCAL_KEYS.sales, data),
-  getTickets: () => readLocal<SupportTicket[]>(LOCAL_KEYS.tickets, DEMO_TICKETS),
-  saveTickets: (data: SupportTicket[]) => writeLocal(LOCAL_KEYS.tickets, data),
-  getEmails: () => readLocal<EmailLog[]>(LOCAL_KEYS.emails, DEMO_EMAIL_LOGS),
-  saveEmails: (data: EmailLog[]) => writeLocal(LOCAL_KEYS.emails, data),
-  getWishlist: () => readLocal<string[]>(LOCAL_KEYS.wishlist, ['P001', 'P003']),
-  saveWishlist: (data: string[]) => writeLocal(LOCAL_KEYS.wishlist, data),
+  getActiveEmpresaId: (): string => {
+    try {
+      return localStorage.getItem(LOCAL_KEYS.activeEmpresaId) || 'EMP001';
+    } catch {
+      return 'EMP001';
+    }
+  },
+  saveActiveEmpresaId: (empresaId: string) => {
+    try {
+      localStorage.setItem(LOCAL_KEYS.activeEmpresaId, empresaId || 'EMP001');
+    } catch {
+      // ignore
+    }
+  },
+  getEmpresas: (): EmpresaConfig[] => {
+    const legacyMain = readLocal<EmpresaConfig>(LOCAL_KEYS.empresa, DEMO_EMPRESA);
+    const list = readLocal<EmpresaConfig[]>(LOCAL_KEYS.empresasList, []);
+    if (list.length === 0) {
+      const initial = [{...legacyMain, id: legacyMain.id || 'EMP001'}];
+      writeLocal(LOCAL_KEYS.empresasList, initial);
+      return initial;
+    }
+    return list;
+  },
+  saveEmpresas: (list: EmpresaConfig[]) => {
+    writeLocal(LOCAL_KEYS.empresasList, list);
+    const emp001 = list.find((e) => e.id === 'EMP001');
+    if (emp001) {
+      writeLocal(LOCAL_KEYS.empresa, emp001);
+    }
+  },
+  upsertEmpresa: (data: EmpresaConfig): EmpresaConfig[] => {
+    const list = localStore.getEmpresas();
+    const exists = list.some((e) => e.id === data.id);
+    const next = exists ? list.map((e) => (e.id === data.id ? data : e)) : [...list, data];
+    localStore.saveEmpresas(next);
+    if (data.id === 'EMP001') {
+      writeLocal(LOCAL_KEYS.empresa, data);
+    } else {
+      writeLocal(scopedKey('empresa', data.id), data);
+    }
+    return next;
+  },
+  getEmpresa: (empresaId?: string): EmpresaConfig => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    const fromList = localStore.getEmpresas().find((e) => e.id === id);
+    if (fromList) return fromList;
+    return readLocal<EmpresaConfig>(
+      scopedKey('empresa', id),
+      id === 'EMP001' ? DEMO_EMPRESA : {...DEMO_EMPRESA, id, nombre: `Empresa ${id}`, iva: 0}
+    );
+  },
+  saveEmpresa: (data: EmpresaConfig) => {
+    localStore.upsertEmpresa(data);
+  },
+  getProducts: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<Product[]>(scopedKey('products', id), defaultForEmpresa(id, DEMO_PRODUCTS, []));
+  },
+  saveProducts: (data: Product[], empresaId?: string) =>
+    writeLocal(scopedKey('products', empresaId || localStore.getActiveEmpresaId()), data),
+  getCustomers: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<Customer[]>(scopedKey('customers', id), defaultForEmpresa(id, DEMO_CUSTOMERS, []));
+  },
+  saveCustomers: (data: Customer[], empresaId?: string) =>
+    writeLocal(scopedKey('customers', empresaId || localStore.getActiveEmpresaId()), data),
+  getSuppliers: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<Supplier[]>(scopedKey('suppliers', id), defaultForEmpresa(id, DEMO_SUPPLIERS, []));
+  },
+  saveSuppliers: (data: Supplier[], empresaId?: string) =>
+    writeLocal(scopedKey('suppliers', empresaId || localStore.getActiveEmpresaId()), data),
+  getPurchases: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<Purchase[]>(scopedKey('purchases', id), defaultForEmpresa(id, DEMO_PURCHASES, []));
+  },
+  savePurchases: (data: Purchase[], empresaId?: string) =>
+    writeLocal(scopedKey('purchases', empresaId || localStore.getActiveEmpresaId()), data),
+  getBanners: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<StoreBanner[]>(scopedKey('banners', id), defaultForEmpresa(id, DEMO_BANNERS, []));
+  },
+  saveBanners: (data: StoreBanner[], empresaId?: string) =>
+    writeLocal(scopedKey('banners', empresaId || localStore.getActiveEmpresaId()), data),
+  getEmployees: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<UserProfile[]>(scopedKey('employees', id), defaultForEmpresa(id, DEMO_EMPLOYEES, []));
+  },
+  saveEmployees: (data: UserProfile[], empresaId?: string) =>
+    writeLocal(scopedKey('employees', empresaId || localStore.getActiveEmpresaId()), data),
+  getSales: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<Sale[]>(scopedKey('sales', id), defaultForEmpresa(id, DEMO_SALES, []));
+  },
+  saveSales: (data: Sale[], empresaId?: string) =>
+    writeLocal(scopedKey('sales', empresaId || localStore.getActiveEmpresaId()), data),
+  getTickets: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<SupportTicket[]>(scopedKey('tickets', id), defaultForEmpresa(id, DEMO_TICKETS, []));
+  },
+  saveTickets: (data: SupportTicket[], empresaId?: string) =>
+    writeLocal(scopedKey('tickets', empresaId || localStore.getActiveEmpresaId()), data),
+  getEmails: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<EmailLog[]>(scopedKey('emails', id), defaultForEmpresa(id, DEMO_EMAIL_LOGS, []));
+  },
+  saveEmails: (data: EmailLog[], empresaId?: string) =>
+    writeLocal(scopedKey('emails', empresaId || localStore.getActiveEmpresaId()), data),
+  getWishlist: (empresaId?: string) => {
+    const id = empresaId || localStore.getActiveEmpresaId();
+    return readLocal<string[]>(scopedKey('wishlist', id), defaultForEmpresa(id, ['P001', 'P003'], []));
+  },
+  saveWishlist: (data: string[], empresaId?: string) =>
+    writeLocal(scopedKey('wishlist', empresaId || localStore.getActiveEmpresaId()), data),
+  seedEmpresaCollections: (
+    targetEmpresa: EmpresaConfig,
+    template?: {
+      products: Product[];
+      customers: Customer[];
+      banners: StoreBanner[];
+    }
+  ) => {
+    localStore.upsertEmpresa(targetEmpresa);
+    const id = targetEmpresa.id;
+    if (template) {
+      localStore.saveProducts(
+        template.products.map((p, idx) => ({
+          ...p,
+          id: `${id}-P${String(idx + 1).padStart(3, '0')}`,
+        })),
+        id
+      );
+      localStore.saveCustomers(
+        template.customers.map((c, idx) => ({
+          ...c,
+          id: `${id}-C${String(idx + 1).padStart(3, '0')}`,
+        })),
+        id
+      );
+      localStore.saveBanners(
+        template.banners.map((b, idx) => ({
+          ...b,
+          id: `${id}-B${String(idx + 1).padStart(3, '0')}`,
+        })),
+        id
+      );
+    } else {
+      localStore.saveProducts([], id);
+      localStore.saveCustomers([], id);
+      localStore.saveBanners([], id);
+    }
+    localStore.saveSuppliers([], id);
+    localStore.savePurchases([], id);
+    localStore.saveEmployees([], id);
+    localStore.saveSales([], id);
+    localStore.saveTickets([], id);
+    localStore.saveEmails([], id);
+    localStore.saveWishlist([], id);
+  },
+  getEmpresaSnapshot: (emp: EmpresaConfig): LocalEmpresaSnapshot => {
+    const prods = localStore.getProducts(emp.id);
+    const custs = localStore.getCustomers(emp.id);
+    const empSales = localStore.getSales(emp.id).filter((s) => s.estado !== 'Cancelada');
+    return {
+      empresa: emp,
+      productsCount: prods.length,
+      customersCount: custs.length,
+      salesCount: empSales.length,
+      revenue: empSales.reduce((acc, s) => acc + (Number(s.total) || 0), 0),
+    };
+  },
   resetDemo: () => {
+    localStore.saveActiveEmpresaId('EMP001');
+    localStore.saveEmpresas([DEMO_EMPRESA]);
     writeLocal(LOCAL_KEYS.empresa, DEMO_EMPRESA);
     writeLocal(LOCAL_KEYS.products, DEMO_PRODUCTS);
     writeLocal(LOCAL_KEYS.customers, DEMO_CUSTOMERS);
@@ -361,6 +574,42 @@ export async function saveTicketCloud(ticket: SupportTicket): Promise<void> {
 export async function saveEmpresaConfigCloud(empresa: EmpresaConfig): Promise<void> {
   if (isSupabaseConfigured) return saveEmpresaConfigSupabase(empresa);
   await setDoc(doc(db, 'empresas', empresa.id), empresa, {merge: true});
+}
+
+export async function cloneEmpresaStarterCloud(
+  targetEmpresaId: string,
+  template: {
+    products: Product[];
+    customers: Customer[];
+    banners: StoreBanner[];
+  }
+): Promise<void> {
+  const tasks: Promise<void>[] = [];
+  template.products.forEach((p, idx) => {
+    tasks.push(
+      saveProductCloud(targetEmpresaId, {
+        ...p,
+        id: `${targetEmpresaId}-P${String(idx + 1).padStart(3, '0')}`,
+      })
+    );
+  });
+  template.customers.forEach((c, idx) => {
+    tasks.push(
+      saveCustomerCloud(targetEmpresaId, {
+        ...c,
+        id: `${targetEmpresaId}-C${String(idx + 1).padStart(3, '0')}`,
+      })
+    );
+  });
+  template.banners.forEach((b, idx) => {
+    tasks.push(
+      saveBannerCloud(targetEmpresaId, {
+        ...b,
+        id: `${targetEmpresaId}-B${String(idx + 1).padStart(3, '0')}`,
+      })
+    );
+  });
+  await Promise.all(tasks);
 }
 
 export async function saveProductCloud(empresaId: string, product: Product): Promise<void> {

@@ -230,6 +230,41 @@ export async function loadUserContextSupabase(uid: string): Promise<{
   return {profile, empresa};
 }
 
+export function subscribeEmpresasListSupabase(
+  isSuperAdmin: boolean,
+  assignedEmpresaId: string,
+  onEmpresas: (list: EmpresaConfig[]) => void
+): () => void {
+  const sb = getClient();
+  let disposed = false;
+
+  const hydrate = async () => {
+    try {
+      const q = isSuperAdmin
+        ? sb.from('empresas').select('*').order('id', {ascending: true})
+        : sb.from('empresas').select('*').eq('id', assignedEmpresaId);
+      const {data, error} = await q;
+      if (!disposed && !error && data) {
+        onEmpresas(data.map(mapEmpresa));
+      }
+    } catch {
+      // ignore transient fetch issues
+    }
+  };
+
+  hydrate();
+
+  const channel = sb
+    .channel(`yabi-empresas-list-${isSuperAdmin ? 'super' : assignedEmpresaId}`)
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'empresas'}, () => hydrate())
+    .subscribe();
+
+  return () => {
+    disposed = true;
+    sb.removeChannel(channel);
+  };
+}
+
 export function subscribeEmpresaRealtimeSupabase(
   empresaId: string,
   isSuperAdmin: boolean,
@@ -289,6 +324,11 @@ export function subscribeEmpresaRealtimeSupabase(
 
   const channel = sb
     .channel(`yabi-realtime-${empresaId}`)
+    .on(
+      'postgres_changes',
+      {event: '*', schema: 'public', table: 'empresas', filter: `id=eq.${empresaId}`},
+      () => hydrate()
+    )
     .on(
       'postgres_changes',
       {event: '*', schema: 'public', table: 'productos', filter: `empresa_id=eq.${empresaId}`},

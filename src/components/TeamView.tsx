@@ -5,6 +5,9 @@ import type {UserProfile} from '../types/yabi';
 
 interface TeamViewProps {
   employees: UserProfile[];
+  activeEmpresaId?: string;
+  activeEmpresaNombre?: string;
+  isSuperAdmin?: boolean;
   currentUserUid?: string;
   isCloudConnected: boolean;
   onCreateEmployee: (payload: {
@@ -25,17 +28,28 @@ const ROLE_LABELS: Record<UserProfile['rol'], string> = {
 
 export const TeamView: React.FC<TeamViewProps> = ({
   employees,
+  activeEmpresaId,
+  activeEmpresaNombre,
+  isSuperAdmin,
   currentUserUid,
   isCloudConnected,
   onCreateEmployee,
   onDeleteEmployee,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
+  const [showAllEmpresas, setShowAllEmpresas] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [rol, setRol] = useState<'admin' | 'vendedor' | 'bodega'>('vendedor');
   const [submitting, setSubmitting] = useState(false);
+
+  const visibleEmployees =
+    activeEmpresaId && !showAllEmpresas
+      ? employees.filter(
+          (emp) => emp.empresaId === activeEmpresaId || emp.rol === 'superadmin'
+        )
+      : employees;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +77,8 @@ export const TeamView: React.FC<TeamViewProps> = ({
       <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-            Equipo y accesos ({employees.length})
+            Equipo y accesos ({visibleEmployees.length})
+            {activeEmpresaNombre ? ` · ${activeEmpresaNombre}` : ''}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {isCloudConnected
@@ -72,6 +87,17 @@ export const TeamView: React.FC<TeamViewProps> = ({
                 : 'Conectado a Cloud Functions (createEmployeeAccount / deleteUserAccount) en yabi-store.'
               : 'Operando en almacenamiento local. Inicia sesión como administrador para crear y gestionar cuentas en la nube.'}
           </p>
+          {isSuperAdmin && employees.length > visibleEmployees.length && (
+            <button
+              type="button"
+              onClick={() => setShowAllEmpresas((v) => !v)}
+              className="mt-2 text-xs font-semibold text-sky-600 dark:text-[#00C8FF] hover:underline"
+            >
+              {showAllEmpresas
+                ? `Ver solo equipo de ${activeEmpresaId}`
+                : `Ver equipo de todas las empresas (${employees.length})`}
+            </button>
+          )}
         </div>
 
         <button
@@ -87,12 +113,12 @@ export const TeamView: React.FC<TeamViewProps> = ({
       {/* Team List */}
       <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
-          {employees.length === 0 ? (
+          {visibleEmployees.length === 0 ? (
             <p className="py-12 text-center text-sm text-slate-500">
-              No hay cuentas de equipo listadas.
+              No hay cuentas de equipo asignadas a {activeEmpresaNombre || 'esta empresa'}.
             </p>
           ) : (
-            employees.map((emp) => {
+            visibleEmployees.map((emp) => {
               const isSelf = emp.uid === currentUserUid;
               return (
                 <div
@@ -100,10 +126,13 @@ export const TeamView: React.FC<TeamViewProps> = ({
                   className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 dark:hover:bg-[#0E1A2E]/40"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                         {emp.nombre}
                       </p>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35] font-mono text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                        {emp.empresaId}
+                      </span>
                       {isSelf && (
                         <span className="text-[11px] font-medium text-sky-600 dark:text-sky-400">
                           (Tú)

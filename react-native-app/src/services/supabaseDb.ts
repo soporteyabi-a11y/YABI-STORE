@@ -171,15 +171,39 @@ export const supabaseRnAuth = {
   },
 };
 
-export async function resolveEmpresaIdSupabase(uid: string): Promise<string> {
+export async function resolveUserContextSupabase(uid: string): Promise<{
+  empresaId: string;
+  isSuperAdmin: boolean;
+}> {
   const sb = getSb();
   const {data} = await sb
     .from('usuarios')
-    .select('empresa_id')
+    .select('empresa_id, rol')
     .eq('uid', uid)
     .maybeSingle();
-  const emp = data?.empresa_id ? String(data.empresa_id) : '';
-  return emp && emp !== '__super__' && emp !== '__default__' ? emp : 'EMP001';
+  const rawEmp = data?.empresa_id ? String(data.empresa_id) : '';
+  const isSuperAdmin = String(data?.rol || '') === 'superadmin';
+  const empresaId =
+    rawEmp && rawEmp !== '__super__' && rawEmp !== '__default__' ? rawEmp : 'EMP001';
+  return {empresaId, isSuperAdmin};
+}
+
+export async function resolveEmpresaIdSupabase(uid: string): Promise<string> {
+  const ctx = await resolveUserContextSupabase(uid);
+  return ctx.empresaId;
+}
+
+export async function listEmpresasSupabase(
+  isSuperAdmin: boolean,
+  assignedEmpresaId: string
+): Promise<RnEmpresa[]> {
+  const sb = getSb();
+  const q = isSuperAdmin
+    ? sb.from('empresas').select('*').order('id', {ascending: true})
+    : sb.from('empresas').select('*').eq('id', assignedEmpresaId);
+  const {data, error} = await q;
+  if (error || !data) return [];
+  return data.map(mapEmpresa);
 }
 
 export function subscribeEmpresaRealtimeSupabase(

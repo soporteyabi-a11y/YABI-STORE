@@ -52,6 +52,7 @@ export const SUPABASE_SCHEMA_SQL = schemaSql;
 
 export function buildFullSupabaseSql(params: {
   empresa: EmpresaConfig;
+  extraEmpresas?: EmpresaConfig[];
   products: Product[];
   customers: Customer[];
   suppliers: Supplier[];
@@ -60,9 +61,27 @@ export function buildFullSupabaseSql(params: {
   sales: Sale[];
   tickets: SupportTicket[];
 }): string {
-  const {empresa, products, customers, suppliers, purchases, banners, sales, tickets} = params;
+  const {
+    empresa,
+    extraEmpresas = [],
+    products,
+    customers,
+    suppliers,
+    purchases,
+    banners,
+    sales,
+    tickets,
+  } = params;
   const empresaId = empresa.id || 'EMP001';
   const productIds = new Set(products.map((p) => p.id));
+
+  const allEmpresasMap = new Map<string, EmpresaConfig>();
+  allEmpresasMap.set(empresaId, {...empresa, id: empresaId});
+  for (const extra of extraEmpresas) {
+    if (extra.id && !allEmpresasMap.has(extra.id)) {
+      allEmpresasMap.set(extra.id, extra);
+    }
+  }
 
   const lines: string[] = [
     schemaSql.trim(),
@@ -71,11 +90,17 @@ export function buildFullSupabaseSql(params: {
     `-- DATOS INICIALES YA'BI STORE (${empresaId}) — Generado para Supabase SQL Editor`,
     '-- ============================================================================',
     '',
-    `INSERT INTO public.empresas (id, nombre, nit, direccion, ciudad, telefono, iva, plan, color, activa)`,
-    `VALUES (${sqlStrReq(empresaId, 'EMP001')}, ${sqlStrReq(empresa.nombre, "YA'BI Store")}, ${sqlStr(empresa.nit)}, ${sqlStr(empresa.direccion)}, ${sqlStr(empresa.ciudad)}, ${sqlStr(empresa.telefono)}, ${sqlNum(empresa.iva, 0)}, ${sqlStrReq(empresa.plan, 'Pro')}, ${sqlStrReq(empresa.color, '#00C8FF')}, ${sqlBool(empresa.activa !== false)})`,
-    `ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, nit = EXCLUDED.nit, direccion = EXCLUDED.direccion, ciudad = EXCLUDED.ciudad, telefono = EXCLUDED.telefono, iva = EXCLUDED.iva, plan = EXCLUDED.plan, color = EXCLUDED.color, activa = EXCLUDED.activa;`,
-    '',
   ];
+
+  for (const empRow of allEmpresasMap.values()) {
+    const eid = empRow.id || 'EMP001';
+    lines.push(
+      `INSERT INTO public.empresas (id, nombre, nit, direccion, ciudad, telefono, iva, plan, color, activa)`,
+      `VALUES (${sqlStrReq(eid, 'EMP001')}, ${sqlStrReq(empRow.nombre, "YA'BI Store")}, ${sqlStr(empRow.nit)}, ${sqlStr(empRow.direccion)}, ${sqlStr(empRow.ciudad)}, ${sqlStr(empRow.telefono)}, ${sqlNum(empRow.iva, 0)}, ${sqlStrReq(empRow.plan, 'Pro')}, ${sqlStrReq(empRow.color, '#00C8FF')}, ${sqlBool(empRow.activa !== false)})`,
+      `ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, nit = EXCLUDED.nit, direccion = EXCLUDED.direccion, ciudad = EXCLUDED.ciudad, telefono = EXCLUDED.telefono, iva = EXCLUDED.iva, plan = EXCLUDED.plan, color = EXCLUDED.color, activa = EXCLUDED.activa;`
+    );
+  }
+  lines.push('');
 
   if (products.length > 0) {
     lines.push('-- Productos');
