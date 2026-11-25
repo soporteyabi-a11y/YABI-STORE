@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import {isSupabaseConfigured} from '../services/yabiDb';
 import {renderApiUrl} from '../services/supabaseClient';
-import {buildFullSupabaseSql} from '../utils/supabaseSqlExport';
+import {buildFullSupabaseSql, SUPABASE_SCHEMA_SQL} from '../utils/supabaseSqlExport';
 import type {
   Customer,
   EmpresaConfig,
@@ -173,10 +173,15 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       tickets,
     });
 
+  const handleCopySchemaOnlySql = async () => {
+    await handleCopy('schema-sql', SUPABASE_SCHEMA_SQL);
+    onNotify('SQL de estructura y funciones (~20 KB) copiado. Pégalo en Supabase → SQL Editor → Run.', 'success');
+  };
+
   const handleCopyFullSql = async () => {
     const sql = generateSqlText();
     await handleCopy('full-sql', sql);
-    onNotify('SQL completo (tablas + datos) copiado. Pégalo en Supabase -> SQL Editor.', 'success');
+    onNotify('SQL completo (sin imágenes pesadas) copiado. Pégalo en Supabase -> SQL Editor.', 'success');
   };
 
   const handleDownloadFullSql = () => {
@@ -267,6 +272,14 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopySchemaOnlySql}
+              className="min-h-[44px] px-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#050A14] text-sm font-bold flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              {copiedId === 'schema-sql' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedId === 'schema-sql' ? 'Estructura Copiada' : 'Copiar Solo Tablas (20 KB)'}
+            </button>
             <button
               type="button"
               onClick={handleCopyFullSql}

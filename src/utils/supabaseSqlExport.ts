@@ -48,6 +48,17 @@ function sqlJsonb(val: unknown): string {
   return `'${serialized.replace(/'/g, "''")}'::jsonb`;
 }
 
+function sqlImg(val: string | undefined | null): string {
+  if (!val) return 'NULL';
+  const trimmed = String(val).trim();
+  if (!trimmed) return 'NULL';
+  // Base64 images make SQL queries exceed Supabase SQL Editor's size limit; keep URLs/paths only
+  if (trimmed.startsWith('data:') && trimmed.length > 2000) {
+    return 'NULL';
+  }
+  return sqlStr(trimmed);
+}
+
 export const SUPABASE_SCHEMA_SQL = schemaSql;
 
 export function buildFullSupabaseSql(params: {
@@ -107,7 +118,7 @@ export function buildFullSupabaseSql(params: {
     for (const p of products) {
       const estado = p.estado === 'Inactivo' ? 'Inactivo' : 'Activo';
       lines.push(
-        `INSERT INTO public.productos (id, empresa_id, nombre, sku, cat, precio, costo, stock, min_stock, proveedor, img, estado, descripcion, destacado) VALUES (${sqlStrReq(p.id)}, ${sqlStrReq(empresaId)}, ${sqlStrReq(p.nombre, 'Producto')}, ${sqlStrReq(p.sku, p.id)}, ${sqlStrReq(p.cat, 'General')}, ${sqlNum(p.precio, 0)}, ${sqlNum(p.costo, 0)}, ${sqlInt(p.stock, 0)}, ${sqlInt(p.minStock, 5)}, ${sqlStr(p.proveedor)}, ${sqlStr(p.img)}, ${sqlStrReq(estado)}, ${sqlStr(p.desc)}, ${sqlBool(p.destacado)}) ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, sku = EXCLUDED.sku, cat = EXCLUDED.cat, precio = EXCLUDED.precio, costo = EXCLUDED.costo, stock = EXCLUDED.stock, min_stock = EXCLUDED.min_stock, proveedor = EXCLUDED.proveedor, img = EXCLUDED.img, estado = EXCLUDED.estado, descripcion = EXCLUDED.descripcion, destacado = EXCLUDED.destacado;`
+        `INSERT INTO public.productos (id, empresa_id, nombre, sku, cat, precio, costo, stock, min_stock, proveedor, img, estado, descripcion, destacado) VALUES (${sqlStrReq(p.id)}, ${sqlStrReq(empresaId)}, ${sqlStrReq(p.nombre, 'Producto')}, ${sqlStrReq(p.sku, p.id)}, ${sqlStrReq(p.cat, 'General')}, ${sqlNum(p.precio, 0)}, ${sqlNum(p.costo, 0)}, ${sqlInt(p.stock, 0)}, ${sqlInt(p.minStock, 5)}, ${sqlStr(p.proveedor)}, ${sqlImg(p.img)}, ${sqlStrReq(estado)}, ${sqlStr(p.desc)}, ${sqlBool(p.destacado)}) ON CONFLICT (id) DO UPDATE SET nombre = EXCLUDED.nombre, sku = EXCLUDED.sku, cat = EXCLUDED.cat, precio = EXCLUDED.precio, costo = EXCLUDED.costo, stock = EXCLUDED.stock, min_stock = EXCLUDED.min_stock, proveedor = EXCLUDED.proveedor, img = COALESCE(EXCLUDED.img, public.productos.img), estado = EXCLUDED.estado, descripcion = EXCLUDED.descripcion, destacado = EXCLUDED.destacado;`
       );
     }
     lines.push('');
@@ -153,7 +164,7 @@ export function buildFullSupabaseSql(params: {
     for (const b of banners) {
       const estado = b.estado === 'Inactivo' ? 'Inactivo' : 'Activo';
       lines.push(
-        `INSERT INTO public.banners (id, empresa_id, titulo, subtitulo, img, cta, estado) VALUES (${sqlStrReq(b.id)}, ${sqlStrReq(empresaId)}, ${sqlStrReq(b.titulo, 'Banner')}, ${sqlStr(b.subtitulo)}, ${sqlStr(b.img)}, ${sqlStr(b.cta)}, ${sqlStrReq(estado)}) ON CONFLICT (id) DO UPDATE SET titulo = EXCLUDED.titulo, subtitulo = EXCLUDED.subtitulo, img = EXCLUDED.img, cta = EXCLUDED.cta, estado = EXCLUDED.estado;`
+        `INSERT INTO public.banners (id, empresa_id, titulo, subtitulo, img, cta, estado) VALUES (${sqlStrReq(b.id)}, ${sqlStrReq(empresaId)}, ${sqlStrReq(b.titulo, 'Banner')}, ${sqlStr(b.subtitulo)}, ${sqlImg(b.img)}, ${sqlStr(b.cta)}, ${sqlStrReq(estado)}) ON CONFLICT (id) DO UPDATE SET titulo = EXCLUDED.titulo, subtitulo = EXCLUDED.subtitulo, img = COALESCE(EXCLUDED.img, public.banners.img), cta = EXCLUDED.cta, estado = EXCLUDED.estado;`
       );
     }
     lines.push('');
