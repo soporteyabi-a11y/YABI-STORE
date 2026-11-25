@@ -440,6 +440,10 @@ GRANT EXECUTE ON FUNCTION public.registrar_suscriptor_yabi(TEXT, TEXT, TEXT, TEX
 -- Row Level Security (RLS) Multi-Empresa
 -- ============================================================================
 
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT SELECT ON public.empresas, public.productos, public.banners TO anon, authenticated;
+GRANT ALL ON public.empresas, public.usuarios, public.productos, public.clientes, public.proveedores, public.compras, public.banners, public.ventas, public.soporte TO authenticated;
+
 ALTER TABLE public.empresas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.productos ENABLE ROW LEVEL SECURITY;
@@ -471,7 +475,7 @@ CREATE POLICY "Acceso empresa propia" ON public.empresas
 
 DROP POLICY IF EXISTS "Acceso usuarios empresa" ON public.usuarios;
 CREATE POLICY "Acceso usuarios empresa" ON public.usuarios
-  FOR SELECT USING (empresa_id = public.current_user_empresa_id() OR uid = auth.uid() OR public.is_superadmin());
+  FOR SELECT USING (uid = auth.uid() OR public.is_superadmin() OR empresa_id = public.current_user_empresa_id());
 
 DROP POLICY IF EXISTS "Gestion productos empresa" ON public.productos;
 CREATE POLICY "Gestion productos empresa" ON public.productos
@@ -509,38 +513,48 @@ CREATE POLICY "Gestion soporte empresa" ON public.soporte
   WITH CHECK (empresa_id = public.current_user_empresa_id() OR public.is_superadmin());
 
 -- ============================================================================
--- Storage Bucket para Productos y Banners (yabi-media)
+-- Storage Bucket para Productos y Banners (yabi-media) - Seguro ante permisos
 -- ============================================================================
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('yabi-media', 'yabi-media', true)
-ON CONFLICT (id) DO NOTHING;
+DO $$
+BEGIN
+  INSERT INTO storage.buckets (id, name, public)
+  VALUES ('yabi-media', 'yabi-media', true)
+  ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'No se pudo crear el bucket yabi-media automáticamente: %', SQLERRM;
+END $$;
 
-DROP POLICY IF EXISTS "Lectura publica media yabi" ON storage.objects;
-CREATE POLICY "Lectura publica media yabi" ON storage.objects
-  FOR SELECT USING (bucket_id = 'yabi-media');
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "Lectura publica media yabi" ON storage.objects;
+  CREATE POLICY "Lectura publica media yabi" ON storage.objects
+    FOR SELECT USING (bucket_id = 'yabi-media');
 
-DROP POLICY IF EXISTS "Subida media empresa yabi" ON storage.objects;
-CREATE POLICY "Subida media empresa yabi" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'yabi-media'
-    AND auth.uid() IS NOT NULL
-    AND (
-      public.is_superadmin()
-      OR (storage.foldername(name))[1] = 'empresas' AND (storage.foldername(name))[2] = public.current_user_empresa_id()
-    )
-  );
+  DROP POLICY IF EXISTS "Subida media empresa yabi" ON storage.objects;
+  CREATE POLICY "Subida media empresa yabi" ON storage.objects
+    FOR INSERT WITH CHECK (
+      bucket_id = 'yabi-media'
+      AND auth.uid() IS NOT NULL
+      AND (
+        public.is_superadmin()
+        OR (storage.foldername(name))[1] = 'empresas' AND (storage.foldername(name))[2] = public.current_user_empresa_id()
+      )
+    );
 
-DROP POLICY IF EXISTS "Eliminacion media empresa yabi" ON storage.objects;
-CREATE POLICY "Eliminacion media empresa yabi" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'yabi-media'
-    AND auth.uid() IS NOT NULL
-    AND (
-      public.is_superadmin()
-      OR (storage.foldername(name))[1] = 'empresas' AND (storage.foldername(name))[2] = public.current_user_empresa_id()
-    )
-  );
+  DROP POLICY IF EXISTS "Eliminacion media empresa yabi" ON storage.objects;
+  CREATE POLICY "Eliminacion media empresa yabi" ON storage.objects
+    FOR DELETE USING (
+      bucket_id = 'yabi-media'
+      AND auth.uid() IS NOT NULL
+      AND (
+        public.is_superadmin()
+        OR (storage.foldername(name))[1] = 'empresas' AND (storage.foldername(name))[2] = public.current_user_empresa_id()
+      )
+    );
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Políticas de storage omitidas por permisos (puedes crearlas en Storage -> Policies): %', SQLERRM;
+END $$;
 
 -- Habilitar Realtime (equivalente a onSnapshot)
 DO $$
@@ -549,11 +563,15 @@ DECLARE
 BEGIN
   FOREACH tbl IN ARRAY ARRAY['empresas','productos','ventas','compras','clientes','proveedores','banners','soporte','usuarios']
   LOOP
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_publication_tables
-      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = tbl
-    ) THEN
-      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tbl);
-    END IF;
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = tbl
+      ) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', tbl);
+      END IF;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE NOTICE 'Realtime omitido para %: %', tbl, SQLERRM;
+    END;
   END LOOP;
 END $$;

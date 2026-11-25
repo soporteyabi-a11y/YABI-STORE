@@ -136,6 +136,7 @@ export default function App() {
   );
   const [empresa, setEmpresa] = useState<EmpresaConfig>(() => localStore.getEmpresa());
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [unlinkedAccount, setUnlinkedAccount] = useState(false);
   const [dataSource, setDataSource] = useState<'cloud' | 'local'>('local');
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(
     () => localStore.getOfflineQueue().length
@@ -220,11 +221,14 @@ export default function App() {
             if (ctx.setupWarning) {
               notify(ctx.setupWarning, 'error');
             }
+            setUnlinkedAccount(Boolean(ctx.unlinkedAccount));
+            const fallbackRole: UserProfile['rol'] =
+              ctx.ownerSuggested || ctx.empresa.id === 'EMP001' ? 'superadmin' : 'admin';
             const resolvedProfile: UserProfile = ctx.profile || {
               uid: fbUser.uid,
               nombre: fbUser.displayName || fbUser.email || 'Usuario YA’BI',
               email: fbUser.email || '',
-              rol: 'admin',
+              rol: fallbackRole,
               empresaId: ctx.empresa.id,
             };
             const isSuper = resolvedProfile.rol === 'superadmin';
@@ -254,6 +258,7 @@ export default function App() {
           }
         } else {
           setUserProfile(null);
+          setUnlinkedAccount(false);
           const localList = localStore.getEmpresas();
           const storedId = localStore.getActiveEmpresaId();
           const validId = localList.some((e) => e.id === storedId)
@@ -1006,6 +1011,39 @@ export default function App() {
     notify(`Plan actualizado a ${plan}`, 'success');
   };
 
+  const handleClaimOwner = async () => {
+    if (!userProfile) return;
+    try {
+      await yabiAuth.claimOwnerAccount({
+        nombreTienda: empresa.nombre || "DIGITAL YA'BI",
+        nombreDueno: userProfile.nombre || 'Propietario',
+        nit: empresa.nit,
+        direccion: empresa.direccion,
+        ciudad: empresa.ciudad,
+        telefono: empresa.telefono,
+        iva: empresa.iva,
+      });
+      const ctx = await loadUserContext(userProfile.uid);
+      if (ctx.profile) {
+        setUserProfile(ctx.profile);
+        setUnlinkedAccount(false);
+        setEmpresa(ctx.empresa);
+        setActiveEmpresaId(ctx.empresa.id);
+        notify('DIGITAL YA’BI activada como Propietario con Plan Oro ($0)', 'success');
+      } else if (ctx.setupWarning) {
+        notify(ctx.setupWarning, 'error');
+      }
+    } catch (err: unknown) {
+      const msg = (err as {message?: string})?.message || '';
+      notify(
+        msg.includes('registrar_dueno_yabi')
+          ? 'Primero ejecuta en Supabase → SQL Editor el script de Configuración → Copiar Solo Tablas (20 KB).'
+          : msg || 'No se pudo activar la cuenta de propietario todavía.',
+        'error'
+      );
+    }
+  };
+
   const handleSaveBanner = async (banner: StoreBanner) => {
     const exists = banners.some((b) => b.id === banner.id);
     const next = exists
@@ -1603,6 +1641,8 @@ export default function App() {
                   productsCount={products.length}
                   employeesCount={employees.length}
                   isOwner={!userProfile || userProfile.rol === 'superadmin'}
+                  unlinkedAccount={unlinkedAccount}
+                  onClaimOwner={handleClaimOwner}
                   onChangePlan={handleChangePlan}
                 />
               )}
@@ -1613,6 +1653,7 @@ export default function App() {
                   empresa={empresa}
                   empresas={empresas}
                   userProfile={userProfile}
+                  unlinkedAccount={unlinkedAccount}
                   dataSource={dataSource}
                   products={products}
                   customers={customers}
@@ -1627,6 +1668,7 @@ export default function App() {
                   isIOS={isIOS}
                   onInstallPWA={install}
                   onSaveEmpresa={handleSaveEmpresa}
+                  onClaimOwner={handleClaimOwner}
                   onOpenAuth={() => setAuthModalOpen(true)}
                   onLogout={async () => {
                     await yabiAuth.logout();

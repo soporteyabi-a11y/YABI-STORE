@@ -32,6 +32,7 @@ interface MobileNativeHubViewProps {
   empresa: EmpresaConfig;
   empresas?: EmpresaConfig[];
   userProfile: UserProfile | null;
+  unlinkedAccount?: boolean;
   dataSource: 'cloud' | 'local';
   products: Product[];
   customers: Customer[];
@@ -46,6 +47,7 @@ interface MobileNativeHubViewProps {
   isIOS: boolean;
   onInstallPWA: () => Promise<boolean>;
   onSaveEmpresa: (empresa: EmpresaConfig) => Promise<void>;
+  onClaimOwner?: () => Promise<void>;
   onOpenAuth: () => void;
   onLogout: () => Promise<void>;
   onNotify: (msg: string, tone?: 'success' | 'info' | 'error') => void;
@@ -83,6 +85,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   empresa,
   empresas = [],
   userProfile,
+  unlinkedAccount = false,
   dataSource,
   products,
   customers,
@@ -97,6 +100,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   isIOS,
   onInstallPWA,
   onSaveEmpresa,
+  onClaimOwner,
   onOpenAuth,
   onLogout,
   onNotify,
@@ -104,6 +108,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [empForm, setEmpForm] = useState<EmpresaConfig>(empresa);
   const [savingEmp, setSavingEmp] = useState(false);
+  const [claimingOwner, setClaimingOwner] = useState(false);
 
   useEffect(() => {
     setEmpForm(empresa);
@@ -220,6 +225,23 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {userProfile && unlinkedAccount && onClaimOwner && (
+            <button
+              type="button"
+              disabled={claimingOwner}
+              onClick={async () => {
+                setClaimingOwner(true);
+                try {
+                  await onClaimOwner();
+                } finally {
+                  setClaimingOwner(false);
+                }
+              }}
+              className="min-h-[44px] px-4 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-[#050A14] text-sm font-bold flex items-center gap-2"
+            >
+              {claimingOwner ? 'Activando…' : 'Activar Dueño Oro ($0)'}
+            </button>
+          )}
           {userProfile ? (
             <button
               type="button"

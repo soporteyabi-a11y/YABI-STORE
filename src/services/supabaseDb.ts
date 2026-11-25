@@ -324,12 +324,36 @@ export const supabaseAuth = {
     });
     if (error) throw error;
   },
+  claimOwnerAccount: async (payload: {
+    nombreTienda?: string;
+    nombreDueno?: string;
+    nit?: string;
+    direccion?: string;
+    ciudad?: string;
+    telefono?: string;
+    iva?: number;
+  }): Promise<void> => {
+    const sb = getClient();
+    const {error: rpcErr} = await sb.rpc('registrar_dueno_yabi', {
+      p_empresa_id: 'EMP001',
+      p_nombre_tienda: payload.nombreTienda?.trim() || "DIGITAL YA'BI",
+      p_nombre_dueno: payload.nombreDueno?.trim() || 'Propietario',
+      p_nit: payload.nit?.trim() || null,
+      p_direccion: payload.direccion?.trim() || null,
+      p_ciudad: payload.ciudad?.trim() || null,
+      p_telefono: payload.telefono?.trim() || null,
+      p_iva: Number(payload.iva ?? 0),
+    });
+    if (rpcErr) throw rpcErr;
+  },
 };
 
 export async function loadUserContextSupabase(uid: string): Promise<{
   profile: UserProfile | null;
   empresa: EmpresaConfig;
   setupWarning?: string;
+  ownerSuggested?: boolean;
+  unlinkedAccount?: boolean;
 }> {
   const sb = getClient();
   let setupWarning: string | undefined;
@@ -341,13 +365,16 @@ export async function loadUserContextSupabase(uid: string): Promise<{
     .maybeSingle();
 
   if (userErr) {
-    setupWarning =
-      'No se pudo leer la tabla usuarios en Supabase. Verifica que hayas ejecutado el SQL completo en Configuración → Copiar SQL.';
+    setupWarning = `No se pudo leer la tabla usuarios en Supabase (${userErr.message}). Ejecuta el SQL de Configuración → Copiar Solo Tablas (20 KB) en Supabase → SQL Editor.`;
   }
+
+  let ownerSuggested = false;
 
   if (!userRow) {
     const {data: authData} = await sb.auth.getUser();
     const meta = authData.user?.user_metadata as Record<string, unknown> | undefined;
+    ownerSuggested = Boolean(meta?.owner_bootstrap);
+
     if (meta?.owner_bootstrap) {
       const {error: rpcErr} = await sb.rpc('registrar_dueno_yabi', {
         p_empresa_id: 'EMP001',
@@ -361,11 +388,12 @@ export async function loadUserContextSupabase(uid: string): Promise<{
       });
       if (rpcErr) {
         setupWarning = rpcErr.message.includes('registrar_dueno_yabi')
-          ? 'Falta ejecutar el SQL actualizado en Supabase (Configuración → Copiar SQL) para activar DIGITAL YA’BI con Plan Oro ($0).'
+          ? 'Falta ejecutar el SQL en Supabase (Configuración → Copiar Solo Tablas 20 KB) para activar DIGITAL YA’BI con Plan Oro ($0).'
           : `No se pudo completar el registro de propietario: ${rpcErr.message}`;
       } else {
         const retry = await sb.from('usuarios').select('*').eq('uid', uid).maybeSingle();
         userRow = retry.data;
+        if (userRow) setupWarning = undefined;
       }
     } else if (meta?.subscriber_bootstrap) {
       const {error: rpcErr} = await sb.rpc('registrar_suscriptor_yabi', {
@@ -380,11 +408,12 @@ export async function loadUserContextSupabase(uid: string): Promise<{
       });
       if (rpcErr) {
         setupWarning = rpcErr.message.includes('registrar_suscriptor_yabi')
-          ? 'Falta ejecutar el SQL actualizado en Supabase (Configuración → Copiar SQL) para activar suscripciones multi-empresa.'
+          ? 'Falta ejecutar el SQL en Supabase (Configuración → Copiar Solo Tablas 20 KB) para activar suscripciones multi-empresa.'
           : `No se pudo activar tu tienda suscriptora: ${rpcErr.message}`;
       } else {
         const retry = await sb.from('usuarios').select('*').eq('uid', uid).maybeSingle();
         userRow = retry.data;
+        if (userRow) setupWarning = undefined;
       }
     }
   }
@@ -402,7 +431,13 @@ export async function loadUserContextSupabase(uid: string): Promise<{
     .maybeSingle();
 
   const empresa = empRow ? mapEmpresa(empRow) : {...DEMO_EMPRESA, id: empresaId};
-  return {profile, empresa, setupWarning};
+  return {
+    profile,
+    empresa,
+    setupWarning,
+    ownerSuggested,
+    unlinkedAccount: !userRow,
+  };
 }
 
 export function subscribeEmpresasListSupabase(

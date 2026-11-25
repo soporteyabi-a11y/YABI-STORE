@@ -8,6 +8,8 @@ interface SubscriptionViewProps {
   productsCount: number;
   employeesCount: number;
   isOwner?: boolean;
+  unlinkedAccount?: boolean;
+  onClaimOwner?: () => Promise<void>;
   onChangePlan: (plan: NonNullable<EmpresaConfig['plan']>) => Promise<void>;
 }
 
@@ -58,13 +60,42 @@ export const SubscriptionView: React.FC<SubscriptionViewProps> = ({
   productsCount,
   employeesCount,
   isOwner = false,
+  unlinkedAccount = false,
+  onClaimOwner,
   onChangePlan,
 }) => {
+  const [claiming, setClaiming] = React.useState(false);
   const activePlan = empresa.plan || 'Oro';
   const currentPrice = isOwner ? 0 : PLANS.find((p) => p.id === activePlan)?.price || 249000;
 
   return (
     <div className="space-y-6 pb-24 lg:pb-8 max-w-6xl">
+      {unlinkedAccount && onClaimOwner && (
+        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+            <p className="font-bold">Tu cuenta aún no está vinculada en la tabla usuarios de Supabase</p>
+            <p>
+              Si ya ejecutaste el SQL de <strong>Configuración → Copiar Solo Tablas (20 KB)</strong>, pulsa este botón para activar <strong>DIGITAL YA&apos;BI</strong> como Propietario con <strong>Plan Oro ($0/mes)</strong>.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={claiming}
+            onClick={async () => {
+              setClaiming(true);
+              try {
+                await onClaimOwner();
+              } finally {
+                setClaiming(false);
+              }
+            }}
+            className="min-h-[40px] px-4 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-[#050A14] text-xs font-bold shrink-0 whitespace-nowrap"
+          >
+            {claiming ? 'Activando…' : 'Activar Plan Oro Dueño ($0)'}
+          </button>
+        </div>
+      )}
+
       {/* Current Plan Summary */}
       <div className="rounded-2xl bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] border-t-2 border-t-[#00C8FF] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3.5">

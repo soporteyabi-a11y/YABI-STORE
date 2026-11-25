@@ -160,12 +160,26 @@ export const yabiAuth = {
     assertSupabaseConfigured();
     await supabaseAuth.resetPassword(email);
   },
+  claimOwnerAccount: async (payload: {
+    nombreTienda?: string;
+    nombreDueno?: string;
+    nit?: string;
+    direccion?: string;
+    ciudad?: string;
+    telefono?: string;
+    iva?: number;
+  }) => {
+    assertSupabaseConfigured();
+    await supabaseAuth.claimOwnerAccount(payload);
+  },
 };
 
 export async function loadUserContext(uid: string): Promise<{
   profile: UserProfile | null;
   empresa: EmpresaConfig;
   setupWarning?: string;
+  ownerSuggested?: boolean;
+  unlinkedAccount?: boolean;
 }> {
   if (!isSupabaseConfigured) {
     return {profile: null, empresa: localStore.getEmpresa()};
