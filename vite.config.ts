@@ -50,6 +50,19 @@ export default defineConfig(() => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/v1\/object\/public\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'yabi-supabase-media',
+                expiration: {
+                  maxEntries: 200,
+                  maxAgeSeconds: 60 * 60 * 24 * 30,
+                },
+              },
+            },
+          ],
         },
         devOptions: {
           enabled: false,

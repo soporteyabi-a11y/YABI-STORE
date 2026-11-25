@@ -1,18 +1,4 @@
-import {onAuthStateChanged, signInWithEmailAndPassword, signOut} from 'firebase/auth';
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  query,
-  setDoc,
-  where,
-  writeBatch,
-  type Unsubscribe,
-} from 'firebase/firestore';
-import {auth, db} from '../config/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {isRnSupabaseConfigured} from '../config/supabase';
 import {
   commitSaleSupabase,
@@ -82,6 +68,7 @@ export interface RnSale {
   guia?: string;
   notas?: string;
   origen?: 'POS' | 'Tienda Online';
+  pendingSync?: boolean;
 }
 
 export interface RnPurchase {
@@ -153,32 +140,115 @@ export interface RnRealtimeCallbacks {
   onTickets: (items: RnTicket[]) => void;
 }
 
-export const rnActiveBackend: 'supabase' | 'firebase' = isRnSupabaseConfigured
-  ? 'supabase'
-  : 'firebase';
+export interface RnOfflineSnapshot {
+  empresa?: RnEmpresa;
+  products?: RnProduct[];
+  sales?: RnSale[];
+  purchases?: RnPurchase[];
+  customers?: RnCustomer[];
+  suppliers?: RnSupplier[];
+  banners?: RnBanner[];
+  tickets?: RnTicket[];
+}
+
+interface RnQueuedSale {
+  empresaId: string;
+  sale: RnSale;
+  stockUpdates: {id: string; stock: number}[];
+}
+
+export const rnActiveBackend = 'supabase' as const;
+export {isRnSupabaseConfigured};
+
+const RN_CACHE_PREFIX = 'yabi_rn_cache_v1_';
+const RN_OFFLINE_SALES_KEY = 'yabi_rn_offline_sales_v1';
+
+export async function loadRnOfflineCache(empresaId: string): Promise<RnOfflineSnapshot | null> {
+  try {
+    const raw = await AsyncStorage.getItem(`${RN_CACHE_PREFIX}${empresaId}`);
+    return raw ? (JSON.parse(raw) as RnOfflineSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveRnOfflineCache(
+  empresaId: string,
+  patch: RnOfflineSnapshot
+): Promise<void> {
+  try {
+    const existing = (await loadRnOfflineCache(empresaId)) || {};
+    await AsyncStorage.setItem(
+      `${RN_CACHE_PREFIX}${empresaId}`,
+      JSON.stringify({...existing, ...patch})
+    );
+  } catch {
+    // ignore storage errors on low-space devices
+  }
+}
+
+export async function getRnOfflineSalesQueue(): Promise<RnQueuedSale[]> {
+  try {
+    const raw = await AsyncStorage.getItem(RN_OFFLINE_SALES_KEY);
+    return raw ? (JSON.parse(raw) as RnQueuedSale[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function enqueueRnOfflineSale(
+  empresaId: string,
+  sale: RnSale,
+  stockUpdates: {id: string; stock: number}[]
+): Promise<number> {
+  const queue = await getRnOfflineSalesQueue();
+  const next: RnQueuedSale[] = [...queue, {empresaId, sale: {...sale, pendingSync: true}, stockUpdates}];
+  try {
+    await AsyncStorage.setItem(RN_OFFLINE_SALES_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage quota errors
+  }
+  return next.length;
+}
+
+export async function flushRnOfflineSales(): Promise<number> {
+  if (!isRnSupabaseConfigured) return 0;
+  const queue = await getRnOfflineSalesQueue();
+  if (queue.length === 0) return 0;
+
+  let synced = 0;
+  const remaining: RnQueuedSale[] = [];
+
+  for (const item of queue) {
+    try {
+      await commitSaleSupabase(item.empresaId, {...item.sale, pendingSync: false}, item.stockUpdates);
+      synced++;
+    } catch {
+      remaining.push(item);
+    }
+  }
+
+  try {
+    await AsyncStorage.setItem(RN_OFFLINE_SALES_KEY, JSON.stringify(remaining));
+  } catch {
+    // ignore storage quota errors
+  }
+  return synced;
+}
 
 export const rnAuth = {
   subscribe: (cb: (user: RnAuthUser | null) => void): (() => void) => {
-    if (isRnSupabaseConfigured) {
-      return supabaseRnAuth.subscribe(cb);
+    if (!isRnSupabaseConfigured) {
+      cb(null);
+      return () => {};
     }
-    return onAuthStateChanged(auth, (fbUser) => {
-      cb(fbUser ? {uid: fbUser.uid, email: fbUser.email || ''} : null);
-    });
+    return supabaseRnAuth.subscribe(cb);
   },
   login: async (email: string, password: string): Promise<void> => {
-    if (isRnSupabaseConfigured) {
-      await supabaseRnAuth.login(email, password);
-      return;
-    }
-    await signInWithEmailAndPassword(auth, email.trim(), password);
+    await supabaseRnAuth.login(email, password);
   },
   logout: async (): Promise<void> => {
-    if (isRnSupabaseConfigured) {
-      await supabaseRnAuth.logout();
-      return;
-    }
-    await signOut(auth);
+    await supabaseRnAuth.logout();
   },
 };
 
@@ -226,186 +296,25 @@ export async function resolveUserContext(uid: string): Promise<{
   empresaId: string;
   isSuperAdmin: boolean;
 }> {
-  if (isRnSupabaseConfigured) {
-    return resolveUserContextSupabase(uid);
-  }
-  const snap = await getDoc(doc(db, 'usuarios', uid));
-  if (!snap.exists()) return {empresaId: 'EMP001', isSuperAdmin: false};
-  const data = snap.data();
-  const rawEmp = data?.empresaId ? String(data.empresaId) : '';
-  const isSuperAdmin = String(data?.rol || '') === 'superadmin';
-  const empresaId =
-    rawEmp && rawEmp !== '__super__' && rawEmp !== '__default__' ? rawEmp : 'EMP001';
-  return {empresaId, isSuperAdmin};
+  return resolveUserContextSupabase(uid);
 }
 
 export async function resolveEmpresaId(uid: string): Promise<string> {
-  if (isRnSupabaseConfigured) {
-    return resolveEmpresaIdSupabase(uid);
-  }
-  const ctx = await resolveUserContext(uid);
-  return ctx.empresaId;
+  return resolveEmpresaIdSupabase(uid);
 }
 
 export async function listAccessibleEmpresas(
   isSuperAdmin: boolean,
   assignedEmpresaId: string
 ): Promise<RnEmpresa[]> {
-  if (isRnSupabaseConfigured) {
-    return listEmpresasSupabase(isSuperAdmin, assignedEmpresaId);
-  }
-  if (isSuperAdmin) {
-    const snap = await getDocs(collection(db, 'empresas'));
-    return snap.docs
-      .map((d) => {
-        const raw = d.data() as Record<string, unknown>;
-        return {
-          id: d.id,
-          nombre: String(raw.nombre || "DIGITAL YA'BI"),
-          nit: raw.nit ? String(raw.nit) : undefined,
-          direccion: raw.direccion ? String(raw.direccion) : undefined,
-          ciudad: raw.ciudad ? String(raw.ciudad) : undefined,
-          telefono: raw.telefono ? String(raw.telefono) : undefined,
-          iva: raw.iva !== null && raw.iva !== undefined ? Number(raw.iva) : 0,
-          plan: (raw.plan as RnEmpresa['plan']) || 'Pro',
-          color: raw.color ? String(raw.color) : '#00C8FF',
-          activa: raw.activa !== false,
-        };
-      })
-      .sort((a, b) => a.id.localeCompare(b.id));
-  }
-  const docSnap = await getDoc(doc(db, 'empresas', assignedEmpresaId));
-  if (!docSnap.exists()) return [];
-  const raw = docSnap.data() as Record<string, unknown>;
-  return [
-    {
-      id: docSnap.id,
-      nombre: String(raw.nombre || "DIGITAL YA'BI"),
-      nit: raw.nit ? String(raw.nit) : undefined,
-      direccion: raw.direccion ? String(raw.direccion) : undefined,
-      ciudad: raw.ciudad ? String(raw.ciudad) : undefined,
-      telefono: raw.telefono ? String(raw.telefono) : undefined,
-      iva: raw.iva !== null && raw.iva !== undefined ? Number(raw.iva) : 0,
-      plan: (raw.plan as RnEmpresa['plan']) || 'Pro',
-      color: raw.color ? String(raw.color) : '#00C8FF',
-      activa: raw.activa !== false,
-    },
-  ];
+  return listEmpresasSupabase(isSuperAdmin, assignedEmpresaId);
 }
 
 export function subscribeEmpresaRealtime(
   empresaId: string,
   callbacks: RnRealtimeCallbacks
 ): () => void {
-  if (isRnSupabaseConfigured) {
-    return subscribeEmpresaRealtimeSupabase(empresaId, callbacks);
-  }
-
-  const unsubs: Unsubscribe[] = [];
-
-  if (callbacks.onEmpresa) {
-    const onEmp = callbacks.onEmpresa;
-    unsubs.push(
-      onSnapshot(doc(db, 'empresas', empresaId), (snap) => {
-        if (snap.exists()) {
-          const d = snap.data() as Record<string, unknown>;
-          onEmp({
-            id: snap.id,
-            nombre: String(d.nombre || "DIGITAL YA'BI"),
-            nit: d.nit ? String(d.nit) : undefined,
-            direccion: d.direccion ? String(d.direccion) : undefined,
-            ciudad: d.ciudad ? String(d.ciudad) : undefined,
-            telefono: d.telefono ? String(d.telefono) : undefined,
-            iva: d.iva !== null && d.iva !== undefined ? Number(d.iva) : 0,
-            plan: (d.plan as RnEmpresa['plan']) || 'Pro',
-            color: d.color ? String(d.color) : '#00C8FF',
-            activa: d.activa !== false,
-          });
-        }
-      })
-    );
-  }
-
-  unsubs.push(
-    onSnapshot(collection(db, 'empresas', empresaId, 'productos'), (snap) => {
-      callbacks.onProducts(snap.docs.map((d) => ({id: d.id, ...d.data()}) as RnProduct));
-    })
-  );
-
-  unsubs.push(
-    onSnapshot(collection(db, 'empresas', empresaId, 'ventas'), (snap) => {
-      const list = snap.docs
-        .map((d) => ({id: d.id, ...d.data()}) as RnSale)
-        .sort((a, b) => (b.fecha + (b.hora || '')).localeCompare(a.fecha + (a.hora || '')));
-      callbacks.onSales(list);
-    })
-  );
-
-  unsubs.push(
-    onSnapshot(collection(db, 'empresas', empresaId, 'compras'), (snap) => {
-      const list = snap.docs
-        .map((d) => ({id: d.id, ...d.data()}) as RnPurchase)
-        .sort((a, b) => b.fecha.localeCompare(a.fecha));
-      callbacks.onPurchases(list);
-    })
-  );
-
-  unsubs.push(
-    onSnapshot(collection(db, 'empresas', empresaId, 'clientes'), (snap) => {
-      callbacks.onCustomers(snap.docs.map((d) => ({id: d.id, ...d.data()}) as RnCustomer));
-    })
-  );
-
-  unsubs.push(
-    onSnapshot(collection(db, 'empresas', empresaId, 'proveedores'), (snap) => {
-      callbacks.onSuppliers(snap.docs.map((d) => ({id: d.id, ...d.data()}) as RnSupplier));
-    })
-  );
-
-  unsubs.push(
-    onSnapshot(collection(db, 'empresas', empresaId, 'banners'), (snap) => {
-      callbacks.onBanners(snap.docs.map((d) => ({id: d.id, ...d.data()}) as RnBanner));
-    })
-  );
-
-  unsubs.push(
-    onSnapshot(
-      query(collection(db, 'soporte'), where('empresaId', '==', empresaId)),
-      (snap) => {
-        const list = snap.docs
-          .map((d) => {
-            const raw = d.data() as Record<string, unknown>;
-            const fechaObj = raw.fecha as {seconds?: number} | string | undefined;
-            const fechaStr =
-              typeof fechaObj === 'string'
-                ? fechaObj
-                : fechaObj && typeof fechaObj === 'object' && typeof fechaObj.seconds === 'number'
-                ? new Date(fechaObj.seconds * 1000).toISOString().slice(0, 10)
-                : new Date().toISOString().slice(0, 10);
-            return {
-              id: d.id,
-              empresaId: String(raw.empresaId || empresaId),
-              asunto: String(raw.asunto || 'Soporte'),
-              mensaje: String(raw.mensaje || ''),
-              prioridad: (raw.prioridad as RnTicket['prioridad']) || 'Media',
-              estado: (raw.estado as RnTicket['estado']) || 'Abierto',
-              fecha: fechaStr,
-              creadoPor: raw.creadoPor ? String(raw.creadoPor) : undefined,
-              respuesta: raw.respuesta ? String(raw.respuesta) : undefined,
-            };
-          })
-          .sort((a, b) => b.fecha.localeCompare(a.fecha));
-        callbacks.onTickets(list);
-      },
-      () => {
-        // ignore permission edge cases for restricted roles
-      }
-    )
-  );
-
-  return () => {
-    unsubs.forEach((u) => u());
-  };
+  return subscribeEmpresaRealtimeSupabase(empresaId, callbacks);
 }
 
 export async function updateStock(
@@ -413,31 +322,35 @@ export async function updateStock(
   productId: string,
   stock: number
 ): Promise<void> {
-  if (isRnSupabaseConfigured) return updateStockSupabase(empresaId, productId, stock);
-  await setDoc(doc(db, 'empresas', empresaId, 'productos', productId), {stock}, {merge: true});
+  return updateStockSupabase(empresaId, productId, stock);
 }
 
 export async function saveProduct(empresaId: string, product: RnProduct): Promise<void> {
-  if (isRnSupabaseConfigured) return saveProductSupabase(empresaId, product);
-  await setDoc(doc(db, 'empresas', empresaId, 'productos', product.id), product, {merge: true});
+  return saveProductSupabase(empresaId, product);
 }
 
 export async function commitSale(
   empresaId: string,
   sale: RnSale,
   stockUpdates: {id: string; stock: number}[]
-): Promise<void> {
-  if (isRnSupabaseConfigured) return commitSaleSupabase(empresaId, sale, stockUpdates);
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale);
-  for (const item of stockUpdates) {
-    batch.set(
-      doc(db, 'empresas', empresaId, 'productos', item.id),
-      {stock: item.stock},
-      {merge: true}
-    );
+): Promise<{queuedOffline: boolean}> {
+  try {
+    await commitSaleSupabase(empresaId, sale, stockUpdates);
+    return {queuedOffline: false};
+  } catch (err) {
+    const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+    const isNetworkError =
+      message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('timeout') ||
+      message.includes('connection') ||
+      message.includes('offline');
+    if (isNetworkError) {
+      await enqueueRnOfflineSale(empresaId, sale, stockUpdates);
+      return {queuedOffline: true};
+    }
+    throw err;
   }
-  await batch.commit();
 }
 
 export async function updateSale(
@@ -445,13 +358,11 @@ export async function updateSale(
   saleId: string,
   patch: Partial<RnSale>
 ): Promise<void> {
-  if (isRnSupabaseConfigured) return updateSaleSupabase(empresaId, saleId, patch);
-  await setDoc(doc(db, 'empresas', empresaId, 'ventas', saleId), patch, {merge: true});
+  return updateSaleSupabase(empresaId, saleId, patch);
 }
 
 export async function savePurchase(empresaId: string, purchase: RnPurchase): Promise<void> {
-  if (isRnSupabaseConfigured) return savePurchaseSupabase(empresaId, purchase);
-  await setDoc(doc(db, 'empresas', empresaId, 'compras', purchase.id), purchase, {merge: true});
+  return savePurchaseSupabase(empresaId, purchase);
 }
 
 export async function receivePurchase(
@@ -460,53 +371,29 @@ export async function receivePurchase(
   productId: string,
   newStock: number
 ): Promise<void> {
-  if (isRnSupabaseConfigured) {
-    return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
-  }
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, 'empresas', empresaId, 'compras', purchaseId),
-    {estado: 'Recibida'},
-    {merge: true}
-  );
-  batch.set(
-    doc(db, 'empresas', empresaId, 'productos', productId),
-    {stock: newStock},
-    {merge: true}
-  );
-  await batch.commit();
+  return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
 }
 
 export async function saveCustomer(empresaId: string, customer: RnCustomer): Promise<void> {
-  if (isRnSupabaseConfigured) return saveCustomerSupabase(empresaId, customer);
-  await setDoc(doc(db, 'empresas', empresaId, 'clientes', customer.id), customer, {merge: true});
+  return saveCustomerSupabase(empresaId, customer);
 }
 
 export async function saveSupplier(empresaId: string, supplier: RnSupplier): Promise<void> {
-  if (isRnSupabaseConfigured) return saveSupplierSupabase(empresaId, supplier);
-  await setDoc(doc(db, 'empresas', empresaId, 'proveedores', supplier.id), supplier, {merge: true});
+  return saveSupplierSupabase(empresaId, supplier);
 }
 
 export async function saveBanner(empresaId: string, banner: RnBanner): Promise<void> {
-  if (isRnSupabaseConfigured) return saveBannerSupabase(empresaId, banner);
-  await setDoc(doc(db, 'empresas', empresaId, 'banners', banner.id), banner, {merge: true});
+  return saveBannerSupabase(empresaId, banner);
 }
 
 export async function deleteBanner(empresaId: string, bannerId: string): Promise<void> {
-  if (isRnSupabaseConfigured) return deleteBannerSupabase(empresaId, bannerId);
-  await deleteDoc(doc(db, 'empresas', empresaId, 'banners', bannerId));
+  return deleteBannerSupabase(empresaId, bannerId);
 }
 
 export async function saveTicket(ticket: RnTicket): Promise<void> {
-  if (isRnSupabaseConfigured) return saveTicketSupabase(ticket);
-  await setDoc(doc(db, 'soporte', ticket.id), ticket, {merge: true});
+  return saveTicketSupabase(ticket);
 }
 
 export async function saveEmpresaConfig(empresa: RnEmpresa): Promise<void> {
-  if (isRnSupabaseConfigured) return saveEmpresaConfigSupabase(empresa);
-  await setDoc(
-    doc(db, 'empresas', empresa.id),
-    {...empresa, iva: Number(empresa.iva ?? 0)},
-    {merge: true}
-  );
+  return saveEmpresaConfigSupabase(empresa);
 }

@@ -27,10 +27,12 @@ import {
   Users,
 } from 'lucide-react-native';
 import {
+  flushRnOfflineSales,
   listAccessibleEmpresas,
+  loadRnOfflineCache,
   resolveUserContext,
-  rnActiveBackend,
   rnAuth,
+  saveRnOfflineCache,
   subscribeEmpresaRealtime,
   type RnBanner,
   type RnCustomer,
@@ -133,22 +135,62 @@ export default function App() {
 
   useEffect(() => {
     if (!empresaId) return;
+    let active = true;
+
+    loadRnOfflineCache(empresaId).then((cached) => {
+      if (!active || !cached) return;
+      if (cached.empresa) setEmpresa(cached.empresa);
+      if (cached.products) setProducts(cached.products);
+      if (cached.sales) setSales(cached.sales);
+      if (cached.purchases) setPurchases(cached.purchases);
+      if (cached.customers) setCustomers(cached.customers);
+      if (cached.suppliers) setSuppliers(cached.suppliers);
+      if (cached.banners) setBanners(cached.banners);
+      if (cached.tickets) setTickets(cached.tickets);
+    });
+
+    flushRnOfflineSales();
+
     const unsubCloud = subscribeEmpresaRealtime(empresaId, {
       onEmpresa: (emp) => {
+        saveRnOfflineCache(empresaId, {empresa: emp});
         setEmpresa(emp);
         setEmpresas((prev) =>
           prev.some((e) => e.id === emp.id) ? prev.map((e) => (e.id === emp.id ? emp : e)) : prev
         );
       },
-      onProducts: setProducts,
-      onSales: setSales,
-      onPurchases: setPurchases,
-      onCustomers: setCustomers,
-      onSuppliers: setSuppliers,
-      onBanners: setBanners,
-      onTickets: setTickets,
+      onProducts: (items) => {
+        saveRnOfflineCache(empresaId, {products: items});
+        setProducts(items);
+      },
+      onSales: (items) => {
+        saveRnOfflineCache(empresaId, {sales: items});
+        setSales(items);
+        flushRnOfflineSales();
+      },
+      onPurchases: (items) => {
+        saveRnOfflineCache(empresaId, {purchases: items});
+        setPurchases(items);
+      },
+      onCustomers: (items) => {
+        saveRnOfflineCache(empresaId, {customers: items});
+        setCustomers(items);
+      },
+      onSuppliers: (items) => {
+        saveRnOfflineCache(empresaId, {suppliers: items});
+        setSuppliers(items);
+      },
+      onBanners: (items) => {
+        saveRnOfflineCache(empresaId, {banners: items});
+        setBanners(items);
+      },
+      onTickets: (items) => {
+        saveRnOfflineCache(empresaId, {tickets: items});
+        setTickets(items);
+      },
     });
     return () => {
+      active = false;
       unsubCloud();
     };
   }, [empresaId]);
@@ -179,10 +221,7 @@ export default function App() {
       <SafeAreaView style={styles.authContainer}>
         <StatusBar style="light" />
         <Text style={styles.brand}>YA&apos;BI Store</Text>
-        <Text style={styles.sub}>
-          POS &amp; Gestión Omnicanal Móvil (
-          {rnActiveBackend === 'supabase' ? 'Supabase Realtime' : 'Firebase onSnapshot'})
-        </Text>
+        <Text style={styles.sub}>POS &amp; Gestión Omnicanal Móvil (Supabase Realtime)</Text>
         {!!error && <Text style={styles.error}>{error}</Text>}
         <TextInput
           value={email}
@@ -281,8 +320,7 @@ export default function App() {
         <View style={styles.empBadge}>
           <Text style={styles.empName}>{empresa.nombre}</Text>
           <Text style={styles.empCode}>
-            {empresaId} · {rnActiveBackend === 'supabase' ? 'Supabase' : 'Firebase'} ·{' '}
-            {ivaPct > 0 ? `IVA ${ivaPct}%` : 'No responsable de IVA'}
+            {empresaId} · Supabase · {ivaPct > 0 ? `IVA ${ivaPct}%` : 'No responsable de IVA'}
           </Text>
           <Text style={styles.empEmail}>{userEmail}</Text>
         </View>
@@ -413,7 +451,9 @@ export default function App() {
               empresa={empresa}
               products={products}
               customers={customers}
-              onRefresh={async () => {}}
+              onRefresh={async () => {
+                await flushRnOfflineSales();
+              }}
             />
           )}
         </Tab.Screen>

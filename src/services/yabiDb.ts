@@ -1,25 +1,3 @@
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  type User,
-} from 'firebase/auth';
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  where,
-  setDoc,
-  deleteDoc,
-  writeBatch,
-  type Unsubscribe,
-} from 'firebase/firestore';
-import {httpsCallable} from 'firebase/functions';
-import {getDownloadURL, ref, uploadBytesResumable} from 'firebase/storage';
-import {auth, db, functions, storage} from './firebase';
 import type {
   Customer,
   EmailLog,
@@ -68,11 +46,13 @@ import {
   DEMO_TICKETS,
 } from '../data/demoSeed';
 
-export const activeBackend: 'supabase' | 'firebase' = isSupabaseConfigured ? 'supabase' : 'firebase';
+export const activeBackend = 'supabase' as const;
+export {isSupabaseConfigured};
 
 const LOCAL_KEYS = {
   empresasList: 'yabi_v2_empresas_list',
   activeEmpresaId: 'yabi_v2_active_empresa_id',
+  offlineQueue: 'yabi_v2_offline_queue',
   products: 'yabi_v2_products',
   customers: 'yabi_v2_customers',
   suppliers: 'yabi_v2_suppliers',
@@ -87,7 +67,10 @@ const LOCAL_KEYS = {
 };
 
 function scopedKey(
-  collectionKey: keyof Omit<typeof LOCAL_KEYS, 'empresasList' | 'activeEmpresaId'>,
+  collectionKey: keyof Omit<
+    typeof LOCAL_KEYS,
+    'empresasList' | 'activeEmpresaId' | 'offlineQueue'
+  >,
   empresaId?: string
 ): string {
   const id = (empresaId || 'EMP001').trim() || 'EMP001';
@@ -115,45 +98,47 @@ function writeLocal<T>(key: string, data: T): void {
   }
 }
 
+function assertSupabaseConfigured() {
+  if (!isSupabaseConfigured) {
+    throw new Error(
+      'Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para conectar en la nube.'
+    );
+  }
+}
+
 export const yabiAuth = {
-  subscribe: (cb: (user: AuthSessionUser | User | null) => void) =>
-    isSupabaseConfigured ? supabaseAuth.subscribe(cb) : onAuthStateChanged(auth, cb),
-  login: (email: string, pass: string) =>
-    isSupabaseConfigured
-      ? supabaseAuth.login(email, pass)
-      : signInWithEmailAndPassword(auth, email.trim(), pass),
-  logout: () => (isSupabaseConfigured ? supabaseAuth.logout() : signOut(auth)),
-  resetPassword: (email: string) =>
-    isSupabaseConfigured
-      ? supabaseAuth.resetPassword(email)
-      : sendPasswordResetEmail(auth, email.trim()),
+  subscribe: (cb: (user: AuthSessionUser | null) => void): (() => void) => {
+    if (!isSupabaseConfigured) {
+      cb(null);
+      return () => {};
+    }
+    return supabaseAuth.subscribe(cb);
+  },
+  login: async (email: string, pass: string) => {
+    assertSupabaseConfigured();
+    return supabaseAuth.login(email, pass);
+  },
+  logout: async () => {
+    if (!isSupabaseConfigured) return;
+    await supabaseAuth.logout();
+  },
+  resetPassword: async (email: string) => {
+    assertSupabaseConfigured();
+    await supabaseAuth.resetPassword(email);
+  },
 };
 
 export async function loadUserContext(uid: string): Promise<{
   profile: UserProfile | null;
   empresa: EmpresaConfig;
 }> {
-  if (isSupabaseConfigured) {
-    try {
-      return await loadUserContextSupabase(uid);
-    } catch {
-      return {profile: null, empresa: DEMO_EMPRESA};
-    }
+  if (!isSupabaseConfigured) {
+    return {profile: null, empresa: localStore.getEmpresa()};
   }
   try {
-    const userSnap = await getDoc(doc(db, 'usuarios', uid));
-    const profile = userSnap.exists() ? ({uid, ...userSnap.data()} as UserProfile) : null;
-    const empresaId =
-      profile?.empresaId && profile.empresaId !== '__super__' && profile.empresaId !== '__default__'
-        ? profile.empresaId
-        : 'EMP001';
-    const empSnap = await getDoc(doc(db, 'empresas', empresaId));
-    const empresa: EmpresaConfig = empSnap.exists()
-      ? ({id: empSnap.id, ...empSnap.data()} as EmpresaConfig)
-      : {...DEMO_EMPRESA, id: empresaId};
-    return {profile, empresa};
+    return await loadUserContextSupabase(uid);
   } catch {
-    return {profile: null, empresa: DEMO_EMPRESA};
+    return {profile: null, empresa: localStore.getEmpresa()};
   }
 }
 
@@ -175,34 +160,10 @@ export function subscribeEmpresasListCloud(
   assignedEmpresaId: string,
   onEmpresas: (list: EmpresaConfig[]) => void
 ): () => void {
-  if (isSupabaseConfigured) {
-    return subscribeEmpresasListSupabase(isSuperAdmin, assignedEmpresaId, onEmpresas);
+  if (!isSupabaseConfigured) {
+    return () => {};
   }
-  if (isSuperAdmin) {
-    return onSnapshot(
-      collection(db, 'empresas'),
-      (snap) => {
-        const list = snap.docs
-          .map((d) => ({id: d.id, ...d.data()}) as EmpresaConfig)
-          .sort((a, b) => a.id.localeCompare(b.id));
-        onEmpresas(list);
-      },
-      () => {
-        // ignore restricted reads
-      }
-    );
-  }
-  return onSnapshot(
-    doc(db, 'empresas', assignedEmpresaId),
-    (snap) => {
-      if (snap.exists()) {
-        onEmpresas([{id: snap.id, ...snap.data()} as EmpresaConfig]);
-      }
-    },
-    () => {
-      // ignore restricted reads
-    }
-  );
+  return subscribeEmpresasListSupabase(isSuperAdmin, assignedEmpresaId, onEmpresas);
 }
 
 export function subscribeEmpresaRealtime(
@@ -210,154 +171,11 @@ export function subscribeEmpresaRealtime(
   isSuperAdmin: boolean,
   callbacks: LiveSyncCallbacks
 ): () => void {
-  if (isSupabaseConfigured) {
-    return subscribeEmpresaRealtimeSupabase(empresaId, isSuperAdmin, callbacks);
-  }
-
-  const unsubs: Unsubscribe[] = [];
-
-  const handleErr = () => {
+  if (!isSupabaseConfigured) {
     callbacks.onSyncStatus(false);
-  };
-
-  unsubs.push(
-    onSnapshot(
-      doc(db, 'empresas', empresaId),
-      (snap) => {
-        if (snap.exists()) {
-          callbacks.onEmpresa({id: snap.id, ...snap.data()} as EmpresaConfig);
-        }
-        callbacks.onSyncStatus(true);
-      },
-      handleErr
-    )
-  );
-
-  unsubs.push(
-    onSnapshot(
-      collection(db, 'empresas', empresaId, 'productos'),
-      (snap) => {
-        callbacks.onProducts(snap.docs.map((d) => ({id: d.id, ...d.data()}) as Product));
-        callbacks.onSyncStatus(true);
-      },
-      handleErr
-    )
-  );
-
-  unsubs.push(
-    onSnapshot(
-      collection(db, 'empresas', empresaId, 'clientes'),
-      (snap) => {
-        callbacks.onCustomers(snap.docs.map((d) => ({id: d.id, ...d.data()}) as Customer));
-      },
-      handleErr
-    )
-  );
-
-  unsubs.push(
-    onSnapshot(
-      collection(db, 'empresas', empresaId, 'proveedores'),
-      (snap) => {
-        callbacks.onSuppliers(snap.docs.map((d) => ({id: d.id, ...d.data()}) as Supplier));
-      },
-      handleErr
-    )
-  );
-
-  unsubs.push(
-    onSnapshot(
-      collection(db, 'empresas', empresaId, 'compras'),
-      (snap) => {
-        const list = snap.docs
-          .map((d) => ({id: d.id, ...d.data()}) as Purchase)
-          .sort((a, b) => b.fecha.localeCompare(a.fecha));
-        callbacks.onPurchases(list);
-      },
-      handleErr
-    )
-  );
-
-  unsubs.push(
-    onSnapshot(
-      collection(db, 'empresas', empresaId, 'banners'),
-      (snap) => {
-        callbacks.onBanners(snap.docs.map((d) => ({id: d.id, ...d.data()}) as StoreBanner));
-      },
-      handleErr
-    )
-  );
-
-  unsubs.push(
-    onSnapshot(
-      collection(db, 'empresas', empresaId, 'ventas'),
-      (snap) => {
-        const list = snap.docs
-          .map((d) => ({id: d.id, ...d.data()}) as Sale)
-          .sort((a, b) => (b.fecha + (b.hora || '')).localeCompare(a.fecha + (a.hora || '')));
-        callbacks.onSales(list);
-      },
-      handleErr
-    )
-  );
-
-  const ticketsQ = isSuperAdmin
-    ? collection(db, 'soporte')
-    : query(collection(db, 'soporte'), where('empresaId', '==', empresaId));
-
-  unsubs.push(
-    onSnapshot(
-      ticketsQ,
-      (snap) => {
-        const list = snap.docs.map((d) => {
-          const raw = d.data() as Record<string, unknown>;
-          const fechaObj = raw.fecha as {seconds?: number} | string | undefined;
-          const fechaStr =
-            typeof fechaObj === 'string'
-              ? fechaObj
-              : fechaObj && typeof fechaObj === 'object' && typeof fechaObj.seconds === 'number'
-              ? new Date(fechaObj.seconds * 1000).toISOString().slice(0, 10)
-              : new Date().toISOString().slice(0, 10);
-          return {
-            id: d.id,
-            empresaId: String(raw.empresaId || empresaId),
-            asunto: String(raw.asunto || 'Soporte'),
-            mensaje: String(raw.mensaje || ''),
-            prioridad: (raw.prioridad as SupportTicket['prioridad']) || 'Media',
-            estado: (raw.estado as SupportTicket['estado']) || 'Abierto',
-            fecha: fechaStr,
-            creadoPor: raw.creadoPor ? String(raw.creadoPor) : undefined,
-            respuesta: raw.respuesta ? String(raw.respuesta) : undefined,
-          };
-        });
-        callbacks.onTickets(list);
-      },
-      () => {
-        // ignore if restricted
-      }
-    )
-  );
-
-  const usersQ = isSuperAdmin
-    ? collection(db, 'usuarios')
-    : query(collection(db, 'usuarios'), where('empresaId', '==', empresaId));
-
-  unsubs.push(
-    onSnapshot(
-      usersQ,
-      (snap) => {
-        callbacks.onEmployees(
-          snap.docs.map((d) => ({id: d.id, uid: d.id, ...d.data()}) as UserProfile)
-        );
-      },
-      () => {
-        // Non-admin roles may have restricted user listing in rules
-      }
-    )
-  );
-
-  return () => {
-    unsubs.forEach((u) => u());
-  };
+    return () => {};
+  }
+  return subscribeEmpresaRealtimeSupabase(empresaId, isSuperAdmin, callbacks);
 }
 
 export interface LocalEmpresaSnapshot {
@@ -367,6 +185,20 @@ export interface LocalEmpresaSnapshot {
   salesCount: number;
   revenue: number;
 }
+
+export type OfflineQueueItem =
+  | {id: string; empresaId: string; type: 'saveSaleCommit'; sale: Sale; updatedStocks: {id: string; stock: number}[]}
+  | {id: string; empresaId: string; type: 'saveSale'; sale: Sale}
+  | {id: string; empresaId: string; type: 'saveProduct'; product: Product}
+  | {id: string; empresaId: string; type: 'deleteProduct'; productId: string}
+  | {id: string; empresaId: string; type: 'saveCustomer'; customer: Customer}
+  | {id: string; empresaId: string; type: 'saveSupplier'; supplier: Supplier}
+  | {id: string; empresaId: string; type: 'savePurchase'; purchase: Purchase}
+  | {id: string; empresaId: string; type: 'receivePurchase'; purchaseId: string; productId: string; newStock: number}
+  | {id: string; empresaId: string; type: 'saveBanner'; banner: StoreBanner}
+  | {id: string; empresaId: string; type: 'deleteBanner'; bannerId: string}
+  | {id: string; empresaId: string; type: 'saveTicket'; ticket: SupportTicket}
+  | {id: string; empresaId: string; type: 'saveEmpresa'; empresa: EmpresaConfig};
 
 function defaultForEmpresa<T>(empId: string, emp001Fallback: T, emptyFallback: T): T {
   return empId === 'EMP001' ? emp001Fallback : emptyFallback;
@@ -488,6 +320,16 @@ export const localStore = {
   },
   saveWishlist: (data: string[], empresaId?: string) =>
     writeLocal(scopedKey('wishlist', empresaId || localStore.getActiveEmpresaId()), data),
+  getOfflineQueue: (): OfflineQueueItem[] =>
+    readLocal<OfflineQueueItem[]>(LOCAL_KEYS.offlineQueue, []),
+  saveOfflineQueue: (items: OfflineQueueItem[]) =>
+    writeLocal(LOCAL_KEYS.offlineQueue, items),
+  enqueueOfflineOp: (item: OfflineQueueItem): OfflineQueueItem[] => {
+    const current = localStore.getOfflineQueue();
+    const next = [...current, item];
+    localStore.saveOfflineQueue(next);
+    return next;
+  },
   seedEmpresaCollections: (
     targetEmpresa: EmpresaConfig,
     template?: {
@@ -548,6 +390,7 @@ export const localStore = {
   resetDemo: () => {
     localStore.saveActiveEmpresaId('EMP001');
     localStore.saveEmpresas([DEMO_EMPRESA]);
+    localStore.saveOfflineQueue([]);
     writeLocal(LOCAL_KEYS.empresa, DEMO_EMPRESA);
     writeLocal(LOCAL_KEYS.products, DEMO_PRODUCTS);
     writeLocal(LOCAL_KEYS.customers, DEMO_CUSTOMERS);
@@ -561,19 +404,64 @@ export const localStore = {
   },
 };
 
+export async function flushOfflineQueueCloud(): Promise<number> {
+  if (!isSupabaseConfigured) return 0;
+  const queue = localStore.getOfflineQueue();
+  if (queue.length === 0) return 0;
+
+  let synced = 0;
+  const remaining: OfflineQueueItem[] = [];
+
+  for (const op of queue) {
+    try {
+      if (op.type === 'saveSaleCommit') {
+        await commitSaleSupabase(op.empresaId, {...op.sale, pendingSync: false}, op.updatedStocks);
+      } else if (op.type === 'saveSale') {
+        await saveSaleSupabase(op.empresaId, {...op.sale, pendingSync: false});
+      } else if (op.type === 'saveProduct') {
+        await saveProductSupabase(op.empresaId, op.product);
+      } else if (op.type === 'deleteProduct') {
+        await deleteProductSupabase(op.empresaId, op.productId);
+      } else if (op.type === 'saveCustomer') {
+        await saveCustomerSupabase(op.empresaId, op.customer);
+      } else if (op.type === 'saveSupplier') {
+        await saveSupplierSupabase(op.empresaId, op.supplier);
+      } else if (op.type === 'savePurchase') {
+        await savePurchaseSupabase(op.empresaId, op.purchase);
+      } else if (op.type === 'receivePurchase') {
+        await receivePurchaseSupabase(op.empresaId, op.purchaseId, op.productId, op.newStock);
+      } else if (op.type === 'saveBanner') {
+        await saveBannerSupabase(op.empresaId, op.banner);
+      } else if (op.type === 'deleteBanner') {
+        await deleteBannerSupabase(op.empresaId, op.bannerId);
+      } else if (op.type === 'saveTicket') {
+        await saveTicketSupabase(op.ticket);
+      } else if (op.type === 'saveEmpresa') {
+        await saveEmpresaConfigSupabase(op.empresa);
+      }
+      synced++;
+    } catch {
+      remaining.push(op);
+    }
+  }
+
+  localStore.saveOfflineQueue(remaining);
+  return synced;
+}
+
 export async function saveSaleCloud(empresaId: string, sale: Sale): Promise<void> {
-  if (isSupabaseConfigured) return saveSaleSupabase(empresaId, sale);
-  await setDoc(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale, {merge: true});
+  assertSupabaseConfigured();
+  return saveSaleSupabase(empresaId, sale);
 }
 
 export async function saveTicketCloud(ticket: SupportTicket): Promise<void> {
-  if (isSupabaseConfigured) return saveTicketSupabase(ticket);
-  await setDoc(doc(db, 'soporte', ticket.id), ticket, {merge: true});
+  assertSupabaseConfigured();
+  return saveTicketSupabase(ticket);
 }
 
 export async function saveEmpresaConfigCloud(empresa: EmpresaConfig): Promise<void> {
-  if (isSupabaseConfigured) return saveEmpresaConfigSupabase(empresa);
-  await setDoc(doc(db, 'empresas', empresa.id), empresa, {merge: true});
+  assertSupabaseConfigured();
+  return saveEmpresaConfigSupabase(empresa);
 }
 
 export async function cloneEmpresaStarterCloud(
@@ -584,6 +472,7 @@ export async function cloneEmpresaStarterCloud(
     banners: StoreBanner[];
   }
 ): Promise<void> {
+  assertSupabaseConfigured();
   const tasks: Promise<void>[] = [];
   template.products.forEach((p, idx) => {
     tasks.push(
@@ -613,28 +502,28 @@ export async function cloneEmpresaStarterCloud(
 }
 
 export async function saveProductCloud(empresaId: string, product: Product): Promise<void> {
-  if (isSupabaseConfigured) return saveProductSupabase(empresaId, product);
-  await setDoc(doc(db, 'empresas', empresaId, 'productos', product.id), product, {merge: true});
+  assertSupabaseConfigured();
+  return saveProductSupabase(empresaId, product);
 }
 
 export async function deleteProductCloud(empresaId: string, productId: string): Promise<void> {
-  if (isSupabaseConfigured) return deleteProductSupabase(empresaId, productId);
-  await deleteDoc(doc(db, 'empresas', empresaId, 'productos', productId));
+  assertSupabaseConfigured();
+  return deleteProductSupabase(empresaId, productId);
 }
 
 export async function saveCustomerCloud(empresaId: string, customer: Customer): Promise<void> {
-  if (isSupabaseConfigured) return saveCustomerSupabase(empresaId, customer);
-  await setDoc(doc(db, 'empresas', empresaId, 'clientes', customer.id), customer, {merge: true});
+  assertSupabaseConfigured();
+  return saveCustomerSupabase(empresaId, customer);
 }
 
 export async function saveSupplierCloud(empresaId: string, supplier: Supplier): Promise<void> {
-  if (isSupabaseConfigured) return saveSupplierSupabase(empresaId, supplier);
-  await setDoc(doc(db, 'empresas', empresaId, 'proveedores', supplier.id), supplier, {merge: true});
+  assertSupabaseConfigured();
+  return saveSupplierSupabase(empresaId, supplier);
 }
 
 export async function savePurchaseCloud(empresaId: string, purchase: Purchase): Promise<void> {
-  if (isSupabaseConfigured) return savePurchaseSupabase(empresaId, purchase);
-  await setDoc(doc(db, 'empresas', empresaId, 'compras', purchase.id), purchase, {merge: true});
+  assertSupabaseConfigured();
+  return savePurchaseSupabase(empresaId, purchase);
 }
 
 export async function receivePurchaseCloud(
@@ -643,31 +532,18 @@ export async function receivePurchaseCloud(
   productId: string,
   newStock: number
 ): Promise<void> {
-  if (isSupabaseConfigured) {
-    return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
-  }
-  const batch = writeBatch(db);
-  batch.set(
-    doc(db, 'empresas', empresaId, 'compras', purchaseId),
-    {estado: 'Recibida'},
-    {merge: true}
-  );
-  batch.set(
-    doc(db, 'empresas', empresaId, 'productos', productId),
-    {stock: newStock},
-    {merge: true}
-  );
-  await batch.commit();
+  assertSupabaseConfigured();
+  return receivePurchaseSupabase(empresaId, purchaseId, productId, newStock);
 }
 
 export async function saveBannerCloud(empresaId: string, banner: StoreBanner): Promise<void> {
-  if (isSupabaseConfigured) return saveBannerSupabase(empresaId, banner);
-  await setDoc(doc(db, 'empresas', empresaId, 'banners', banner.id), banner, {merge: true});
+  assertSupabaseConfigured();
+  return saveBannerSupabase(empresaId, banner);
 }
 
 export async function deleteBannerCloud(empresaId: string, bannerId: string): Promise<void> {
-  if (isSupabaseConfigured) return deleteBannerSupabase(empresaId, bannerId);
-  await deleteDoc(doc(db, 'empresas', empresaId, 'banners', bannerId));
+  assertSupabaseConfigured();
+  return deleteBannerSupabase(empresaId, bannerId);
 }
 
 export async function commitSaleCloud(
@@ -675,19 +551,8 @@ export async function commitSaleCloud(
   sale: Sale,
   updatedStocks: {id: string; stock: number}[]
 ): Promise<void> {
-  if (isSupabaseConfigured) {
-    return commitSaleSupabase(empresaId, sale, updatedStocks);
-  }
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'empresas', empresaId, 'ventas', sale.id), sale);
-  for (const item of updatedStocks) {
-    batch.set(
-      doc(db, 'empresas', empresaId, 'productos', item.id),
-      {stock: item.stock},
-      {merge: true}
-    );
-  }
-  await batch.commit();
+  assertSupabaseConfigured();
+  return commitSaleSupabase(empresaId, sale, updatedStocks);
 }
 
 export async function createEmployeeCloud(payload: {
@@ -697,55 +562,21 @@ export async function createEmployeeCloud(payload: {
   rol: 'admin' | 'vendedor' | 'bodega';
   empresaId: string;
 }): Promise<string> {
-  if (isSupabaseConfigured) return createEmployeeSupabase(payload);
-  const fn = httpsCallable<
-    {email: string; password: string; nombre: string; rol: string; empresaId: string},
-    {uid: string}
-  >(functions, 'createEmployeeAccount');
-  const res = await fn({
-    email: payload.email.trim(),
-    password: payload.pass,
-    nombre: payload.nombre.trim(),
-    rol: payload.rol,
-    empresaId: payload.empresaId,
-  });
-  return res.data.uid;
+  assertSupabaseConfigured();
+  return createEmployeeSupabase(payload);
 }
 
 export async function deleteEmployeeCloud(uid: string): Promise<void> {
-  if (isSupabaseConfigured) return deleteEmployeeSupabase(uid);
-  const fn = httpsCallable<{uid: string}, unknown>(functions, 'deleteUserAccount');
-  await fn({uid});
+  assertSupabaseConfigured();
+  return deleteEmployeeSupabase(uid);
 }
 
-export function uploadImageToFirebaseStorage(
+export function uploadImageToStorage(
   empresaId: string,
   folder: 'productos' | 'banners',
   file: File,
   onProgress?: (pct: number) => void
 ): Promise<string> {
-  if (isSupabaseConfigured) {
-    return uploadImageToSupabaseStorage(empresaId, folder, file, onProgress);
-  }
-  return new Promise((resolve, reject) => {
-    const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storageRef = ref(
-      storage,
-      `empresas/${empresaId}/${folder}/${Date.now()}_${cleanName}`
-    );
-    const task = uploadBytesResumable(storageRef, file);
-    task.on(
-      'state_changed',
-      (snap) => {
-        if (snap.totalBytes > 0 && onProgress) {
-          onProgress(Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
-        }
-      },
-      (err) => reject(err),
-      async () => {
-        const url = await getDownloadURL(task.snapshot.ref);
-        resolve(url);
-      }
-    );
-  });
+  assertSupabaseConfigured();
+  return uploadImageToSupabaseStorage(empresaId, folder, file, onProgress);
 }

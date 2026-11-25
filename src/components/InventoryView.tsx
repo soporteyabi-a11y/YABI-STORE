@@ -1,7 +1,7 @@
 import React, {useMemo, useState} from 'react';
 import {AlertTriangle, Edit3, Minus, Plus, Search, Trash2, Upload, X} from 'lucide-react';
 import type {Product} from '../types/yabi';
-import {uploadImageToFirebaseStorage} from '../services/yabiDb';
+import {uploadImageToStorage} from '../services/yabiDb';
 import {formatCOP, genId} from '../utils/format';
 import {ProductImage} from './ProductImage';
 
@@ -52,11 +52,11 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
     setUploadPct(5);
     try {
       if (isCloudConnected) {
-        const url = await uploadImageToFirebaseStorage(empresaId, 'productos', file, (pct) =>
+        const url = await uploadImageToStorage(empresaId, 'productos', file, (pct) =>
           setUploadPct(pct)
         );
         setForm((prev) => ({...prev, img: url}));
-        onNotify('Imagen subida a Firebase Storage', 'success');
+        onNotify('Imagen subida a Supabase Storage', 'success');
       } else {
         const reader = new FileReader();
         reader.onload = () => setForm((prev) => ({...prev, img: String(reader.result || '')}));
@@ -64,7 +64,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
         onNotify('Imagen cargada en modo local', 'info');
       }
     } catch {
-      onNotify('Error al subir imagen a Firebase Storage', 'error');
+      onNotify('Error al subir imagen a Supabase Storage', 'error');
     } finally {
       setUploadPct(null);
     }
@@ -538,7 +538,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-                    Foto del producto (Firebase Storage o cámara)
+                    Foto del producto (Supabase Storage o cámara)
                   </label>
                   <div className="flex items-center gap-3">
                     <ProductImage

@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {Eye, EyeOff, Image as ImageIcon, Plus, Trash2, Upload} from 'lucide-react';
-import {uploadImageToFirebaseStorage} from '../services/yabiDb';
+import {uploadImageToStorage} from '../services/yabiDb';
 import type {StoreBanner} from '../types/yabi';
 import {genId} from '../utils/format';
 
@@ -33,9 +33,9 @@ export const BannersView: React.FC<BannersViewProps> = ({
     setUploading(true);
     try {
       if (isCloudConnected) {
-        const url = await uploadImageToFirebaseStorage(empresaId, 'banners', file);
+        const url = await uploadImageToStorage(empresaId, 'banners', file);
         setImg(url);
-        onNotify('Banner subido a Firebase Storage', 'success');
+        onNotify('Banner subido a Supabase Storage', 'success');
       } else {
         const reader = new FileReader();
         reader.onload = () => setImg(String(reader.result || ''));

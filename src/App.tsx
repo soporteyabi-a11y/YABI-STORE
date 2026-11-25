@@ -47,13 +47,14 @@ import {SupportView} from './components/SupportView';
 import {TeamView} from './components/TeamView';
 import {useOnlineStatus, usePWAInstall} from './hooks/usePWAInstall';
 import {
-  activeBackend,
   cloneEmpresaStarterCloud,
   commitSaleCloud,
   createEmployeeCloud,
   deleteBannerCloud,
   deleteEmployeeCloud,
   deleteProductCloud,
+  flushOfflineQueueCloud,
+  isSupabaseConfigured,
   loadUserContext,
   localStore,
   receivePurchaseCloud,
@@ -132,7 +133,10 @@ export default function App() {
   );
   const [empresa, setEmpresa] = useState<EmpresaConfig>(() => localStore.getEmpresa());
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [dataSource, setDataSource] = useState<'firebase' | 'local'>('local');
+  const [dataSource, setDataSource] = useState<'cloud' | 'local'>('local');
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(
+    () => localStore.getOfflineQueue().length
+  );
   const [loading, setLoading] = useState<boolean>(false);
 
   const [products, setProducts] = useState<Product[]>(() => localStore.getProducts());
@@ -256,42 +260,80 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!userProfile) {
-      setEmpresa(localStore.getEmpresa(activeEmpresaId));
-      setProducts(localStore.getProducts(activeEmpresaId));
-      setCustomers(localStore.getCustomers(activeEmpresaId));
-      setSuppliers(localStore.getSuppliers(activeEmpresaId));
-      setPurchases(localStore.getPurchases(activeEmpresaId));
-      setBanners(localStore.getBanners(activeEmpresaId));
-      setEmployees(localStore.getEmployees(activeEmpresaId));
-      setSales(localStore.getSales(activeEmpresaId));
-      setTickets(localStore.getTickets(activeEmpresaId));
-      setEmails(localStore.getEmails(activeEmpresaId));
-      setWishlist(localStore.getWishlist(activeEmpresaId));
+    // Hydrate cached snapshot immediately for instant offline / cold-start readiness
+    setEmpresa(localStore.getEmpresa(activeEmpresaId));
+    setProducts(localStore.getProducts(activeEmpresaId));
+    setCustomers(localStore.getCustomers(activeEmpresaId));
+    setSuppliers(localStore.getSuppliers(activeEmpresaId));
+    setPurchases(localStore.getPurchases(activeEmpresaId));
+    setBanners(localStore.getBanners(activeEmpresaId));
+    setEmployees(localStore.getEmployees(activeEmpresaId));
+    setSales(localStore.getSales(activeEmpresaId));
+    setTickets(localStore.getTickets(activeEmpresaId));
+    setEmails(localStore.getEmails(activeEmpresaId));
+    setWishlist(localStore.getWishlist(activeEmpresaId));
+
+    if (!userProfile || !isSupabaseConfigured) {
       setDataSource('local');
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (!isOnline) {
+      setDataSource('local');
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     const isSuper = userProfile.rol === 'superadmin';
     const unsubCloud = subscribeEmpresaRealtime(activeEmpresaId, isSuper, {
       onEmpresa: (e) => {
+        localStore.saveEmpresa(e);
         setEmpresa(e);
         setEmpresas((prev) =>
           prev.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [...prev, e]
         );
       },
-      onProducts: (list) => setProducts(list),
-      onCustomers: (list) => setCustomers(list),
-      onSuppliers: (list) => setSuppliers(list),
-      onPurchases: (list) => setPurchases(list),
-      onBanners: (list) => setBanners(list),
-      onSales: (list) => setSales(list),
-      onEmployees: (list) => setEmployees(list),
-      onTickets: (list) => setTickets(list),
+      onProducts: (list) => {
+        localStore.saveProducts(list, activeEmpresaId);
+        setProducts(list);
+      },
+      onCustomers: (list) => {
+        localStore.saveCustomers(list, activeEmpresaId);
+        setCustomers(list);
+      },
+      onSuppliers: (list) => {
+        localStore.saveSuppliers(list, activeEmpresaId);
+        setSuppliers(list);
+      },
+      onPurchases: (list) => {
+        localStore.savePurchases(list, activeEmpresaId);
+        setPurchases(list);
+      },
+      onBanners: (list) => {
+        localStore.saveBanners(list, activeEmpresaId);
+        setBanners(list);
+      },
+      onSales: (list) => {
+        const cloudIds = new Set(list.map((s) => s.id));
+        const localPending = localStore
+          .getSales(activeEmpresaId)
+          .filter((s) => s.pendingSync && !cloudIds.has(s.id));
+        const merged = localPending.length > 0 ? [...localPending, ...list] : list;
+        localStore.saveSales(merged, activeEmpresaId);
+        setSales(merged);
+      },
+      onEmployees: (list) => {
+        localStore.saveEmployees(list, activeEmpresaId);
+        setEmployees(list);
+      },
+      onTickets: (list) => {
+        localStore.saveTickets(list, activeEmpresaId);
+        setTickets(list);
+      },
       onSyncStatus: (connected) => {
-        setDataSource(connected ? 'firebase' : 'local');
+        setDataSource(connected ? 'cloud' : 'local');
         setLoading(false);
       },
     });
@@ -302,37 +344,47 @@ export default function App() {
       clearTimeout(safetyTimer);
       unsubCloud();
     };
-  }, [userProfile, activeEmpresaId]);
+  }, [userProfile, activeEmpresaId, isOnline]);
 
-  // Reintento automático de ventas guardadas offline al recuperar conexión y sesión en la nube
+  // Reintento automático de operaciones y ventas guardadas offline al recuperar conexión y sesión
   useEffect(() => {
-    if (!isOnline || !userProfile) return;
-    const pending = sales.filter((s) => s.pendingSync);
-    if (pending.length === 0) return;
+    if (!isOnline || !userProfile || !isSupabaseConfigured) return;
 
     let cancelled = false;
     (async () => {
-      let syncedCount = 0;
-      const syncedIds = new Set<string>();
-      for (const sale of pending) {
+      let totalSynced = 0;
+      const flushedQueue = await flushOfflineQueueCloud();
+      totalSynced += flushedQueue;
+      if (!cancelled) {
+        setPendingSyncCount(localStore.getOfflineQueue().length);
+      }
+
+      const pendingSales = sales.filter((s) => s.pendingSync);
+      const syncedSaleIds = new Set<string>();
+      for (const sale of pendingSales) {
         try {
           const cleanSale: Sale = {...sale, pendingSync: false};
           await saveSaleCloud(empresa.id, cleanSale);
-          syncedIds.add(sale.id);
-          syncedCount++;
+          syncedSaleIds.add(sale.id);
+          totalSynced++;
         } catch {
           // retry on next online transition
         }
       }
-      if (!cancelled && syncedCount > 0) {
-        setSales((prev) => {
-          const updated = prev.map((s) =>
-            syncedIds.has(s.id) ? {...s, pendingSync: false} : s
-          );
-          localStore.saveSales(updated, empresa.id);
-          return updated;
-        });
-        notify(`${syncedCount} venta(s) offline sincronizadas en la nube`, 'success');
+
+      if (!cancelled && (syncedSaleIds.size > 0 || flushedQueue > 0)) {
+        if (syncedSaleIds.size > 0 || flushedQueue > 0) {
+          setSales((prev) => {
+            const updated = prev.map((s) =>
+              s.pendingSync && (syncedSaleIds.has(s.id) || flushedQueue > 0)
+                ? {...s, pendingSync: false}
+                : s
+            );
+            localStore.saveSales(updated, empresa.id);
+            return updated;
+          });
+        }
+        notify(`${totalSynced} operación(es) offline sincronizada(s) en Supabase`, 'success');
       }
     })();
 
@@ -412,15 +464,14 @@ export default function App() {
       return {...p, stock: nextStock};
     });
 
-    if (dataSource !== 'firebase') {
-      const nextSales = [sale, ...sales];
-      setProducts(nextProducts);
-      setSales(nextSales);
-      localStore.saveProducts(nextProducts, empresa.id);
-      localStore.saveSales(nextSales, empresa.id);
-    }
-
     if (userProfile && isOnline) {
+      if (dataSource !== 'cloud') {
+        const nextSales = [sale, ...sales];
+        setProducts(nextProducts);
+        setSales(nextSales);
+        localStore.saveProducts(nextProducts, empresa.id);
+        localStore.saveSales(nextSales, empresa.id);
+      }
       try {
         await commitSaleCloud(empresa.id, sale, updatedStocks);
       } catch {
@@ -430,7 +481,15 @@ export default function App() {
         setSales(nextSales);
         localStore.saveProducts(nextProducts, empresa.id);
         localStore.saveSales(nextSales, empresa.id);
-        notify('Venta guardada localmente; se sincronizará al volver internet', 'info');
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveSaleCommit',
+          sale: offlineSale,
+          updatedStocks,
+        });
+        setPendingSyncCount(queue.length);
+        notify('Venta guardada en caché local; se sincronizará con Supabase al reconectar', 'info');
       }
     } else if (userProfile && !isOnline) {
       const offlineSale: Sale = {...sale, pendingSync: true};
@@ -439,7 +498,21 @@ export default function App() {
       setSales(nextSales);
       localStore.saveProducts(nextProducts, empresa.id);
       localStore.saveSales(nextSales, empresa.id);
-      notify('Sin internet: venta en cola de sincronización', 'info');
+      const queue = localStore.enqueueOfflineOp({
+        id: genId('OP'),
+        empresaId: empresa.id,
+        type: 'saveSaleCommit',
+        sale: offlineSale,
+        updatedStocks,
+      });
+      setPendingSyncCount(queue.length);
+      notify('Sin internet: venta guardada en cola offline para Supabase', 'info');
+    } else {
+      const nextSales = [sale, ...sales];
+      setProducts(nextProducts);
+      setSales(nextSales);
+      localStore.saveProducts(nextProducts, empresa.id);
+      localStore.saveSales(nextSales, empresa.id);
     }
 
     if (payload.customer?.email) {
@@ -456,40 +529,94 @@ export default function App() {
   };
 
   const handleUpdateSale = async (updatedSale: Sale) => {
-    if (dataSource !== 'firebase') {
-      const next = sales.map((s) => (s.id === updatedSale.id ? updatedSale : s));
-      setSales(next);
-      localStore.saveSales(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveSaleCloud(empresa.id, updatedSale);
+    const next = sales.map((s) => (s.id === updatedSale.id ? updatedSale : s));
+    setSales(next);
+    localStore.saveSales(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveSaleCloud(empresa.id, updatedSale);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveSale',
+            sale: updatedSale,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveSale',
+          sale: updatedSale,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(`Orden ${updatedSale.orden} actualizada`, 'success');
   };
 
   const handleSaveProduct = async (product: Product) => {
     const exists = products.some((p) => p.id === product.id);
-    if (dataSource !== 'firebase') {
-      const next = exists
-        ? products.map((p) => (p.id === product.id ? product : p))
-        : [product, ...products];
-      setProducts(next);
-      localStore.saveProducts(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveProductCloud(empresa.id, product);
+    const next = exists
+      ? products.map((p) => (p.id === product.id ? product : p))
+      : [product, ...products];
+    setProducts(next);
+    localStore.saveProducts(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveProductCloud(empresa.id, product);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveProduct',
+            product,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveProduct',
+          product,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(exists ? 'Producto actualizado' : 'Producto creado', 'success');
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (dataSource !== 'firebase') {
-      const next = products.filter((p) => p.id !== productId);
-      setProducts(next);
-      localStore.saveProducts(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await deleteProductCloud(empresa.id, productId);
+    const next = products.filter((p) => p.id !== productId);
+    setProducts(next);
+    localStore.saveProducts(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await deleteProductCloud(empresa.id, productId);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'deleteProduct',
+            productId,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'deleteProduct',
+          productId,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify('Producto eliminado del inventario', 'info');
   };
@@ -498,24 +625,60 @@ export default function App() {
     const target = products.find((p) => p.id === productId);
     if (!target) return;
     const updated = {...target, stock: Math.max(0, target.stock + delta)};
-    if (dataSource !== 'firebase') {
-      const next = products.map((p) => (p.id === productId ? updated : p));
-      setProducts(next);
-      localStore.saveProducts(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveProductCloud(empresa.id, updated);
+    const next = products.map((p) => (p.id === productId ? updated : p));
+    setProducts(next);
+    localStore.saveProducts(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveProductCloud(empresa.id, updated);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveProduct',
+            product: updated,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveProduct',
+          product: updated,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
   };
 
   const handleCreatePurchase = async (purchase: Purchase) => {
-    if (dataSource !== 'firebase') {
-      const next = [purchase, ...purchases];
-      setPurchases(next);
-      localStore.savePurchases(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await savePurchaseCloud(empresa.id, purchase);
+    const next = [purchase, ...purchases];
+    setPurchases(next);
+    localStore.savePurchases(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await savePurchaseCloud(empresa.id, purchase);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'savePurchase',
+            purchase,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'savePurchase',
+          purchase,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(`Orden ${purchase.orden} creada`, 'success');
   };
@@ -525,20 +688,43 @@ export default function App() {
     const targetProd = products.find((p) => p.id === purchase.productoId);
     const newStock = (targetProd?.stock || 0) + purchase.qty;
 
-    if (dataSource !== 'firebase') {
-      const nextPurchases = purchases.map((p) =>
-        p.id === purchase.id ? {...p, estado: 'Recibida' as const} : p
-      );
-      const nextProducts = products.map((p) =>
-        p.id === purchase.productoId ? {...p, stock: newStock} : p
-      );
-      setPurchases(nextPurchases);
-      setProducts(nextProducts);
-      localStore.savePurchases(nextPurchases, empresa.id);
-      localStore.saveProducts(nextProducts, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await receivePurchaseCloud(empresa.id, purchase.id, purchase.productoId, newStock);
+    const nextPurchases = purchases.map((p) =>
+      p.id === purchase.id ? {...p, estado: 'Recibida' as const} : p
+    );
+    const nextProducts = products.map((p) =>
+      p.id === purchase.productoId ? {...p, stock: newStock} : p
+    );
+    setPurchases(nextPurchases);
+    setProducts(nextProducts);
+    localStore.savePurchases(nextPurchases, empresa.id);
+    localStore.saveProducts(nextProducts, empresa.id);
+
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await receivePurchaseCloud(empresa.id, purchase.id, purchase.productoId, newStock);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'receivePurchase',
+            purchaseId: purchase.id,
+            productId: purchase.productoId,
+            newStock,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'receivePurchase',
+          purchaseId: purchase.id,
+          productId: purchase.productoId,
+          newStock,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(`${purchase.orden} recibida · Stock actualizado (+${purchase.qty})`, 'success');
   };
@@ -550,30 +736,66 @@ export default function App() {
 
   const handleSaveCustomer = async (customer: Customer) => {
     const exists = customers.some((c) => c.id === customer.id);
-    if (dataSource !== 'firebase') {
-      const next = exists
-        ? customers.map((c) => (c.id === customer.id ? customer : c))
-        : [customer, ...customers];
-      setCustomers(next);
-      localStore.saveCustomers(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveCustomerCloud(empresa.id, customer);
+    const next = exists
+      ? customers.map((c) => (c.id === customer.id ? customer : c))
+      : [customer, ...customers];
+    setCustomers(next);
+    localStore.saveCustomers(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveCustomerCloud(empresa.id, customer);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveCustomer',
+            customer,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveCustomer',
+          customer,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(exists ? 'Cliente actualizado' : 'Cliente guardado', 'success');
   };
 
   const handleSaveSupplier = async (supplier: Supplier) => {
     const exists = suppliers.some((s) => s.id === supplier.id);
-    if (dataSource !== 'firebase') {
-      const next = exists
-        ? suppliers.map((s) => (s.id === supplier.id ? supplier : s))
-        : [supplier, ...suppliers];
-      setSuppliers(next);
-      localStore.saveSuppliers(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveSupplierCloud(empresa.id, supplier);
+    const next = exists
+      ? suppliers.map((s) => (s.id === supplier.id ? supplier : s))
+      : [supplier, ...suppliers];
+    setSuppliers(next);
+    localStore.saveSuppliers(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveSupplierCloud(empresa.id, supplier);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveSupplier',
+            supplier,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveSupplier',
+          supplier,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(exists ? 'Proveedor actualizado' : 'Proveedor guardado', 'success');
   };
@@ -587,10 +809,7 @@ export default function App() {
     if (userProfile && isOnline) {
       try {
         await createEmployeeCloud({...payload, empresaId: empresa.id});
-        notify(
-          `Cuenta creada en ${activeBackend === 'supabase' ? 'Supabase' : 'Firebase'} para ${payload.nombre}`,
-          'success'
-        );
+        notify(`Cuenta creada en Supabase para ${payload.nombre}`, 'success');
         return;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Error al crear la cuenta de empleado';
@@ -615,12 +834,7 @@ export default function App() {
     if (userProfile && isOnline) {
       try {
         await deleteEmployeeCloud(uid);
-        notify(
-          activeBackend === 'supabase'
-            ? 'Cuenta eliminada vía Render + Supabase'
-            : 'Cuenta eliminada vía Cloud Function',
-          'info'
-        );
+        notify('Cuenta eliminada vía Render + Supabase', 'info');
         return;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Error al eliminar la cuenta';
@@ -664,19 +878,37 @@ export default function App() {
         notify(`Ya existe una empresa con el código ${updated.id}`, 'error');
         return;
       }
+      localStore.seedEmpresaCollections(
+        updated,
+        options.cloneFromCurrent ? {products, customers, banners} : undefined
+      );
       if (!userProfile) {
-        localStore.seedEmpresaCollections(
-          updated,
-          options.cloneFromCurrent ? {products, customers, banners} : undefined
-        );
         setEmpresas(localStore.getEmpresas());
       } else {
         setEmpresas((prev) => [...prev, updated]);
         if (isOnline) {
-          await saveEmpresaConfigCloud(updated);
-          if (options.cloneFromCurrent) {
-            await cloneEmpresaStarterCloud(updated.id, {products, customers, banners});
+          try {
+            await saveEmpresaConfigCloud(updated);
+            if (options.cloneFromCurrent) {
+              await cloneEmpresaStarterCloud(updated.id, {products, customers, banners});
+            }
+          } catch {
+            const queue = localStore.enqueueOfflineOp({
+              id: genId('OP'),
+              empresaId: updated.id,
+              type: 'saveEmpresa',
+              empresa: updated,
+            });
+            setPendingSyncCount(queue.length);
           }
+        } else {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: updated.id,
+            type: 'saveEmpresa',
+            empresa: updated,
+          });
+          setPendingSyncCount(queue.length);
         }
       }
       localStore.saveActiveEmpresaId(updated.id);
@@ -696,8 +928,28 @@ export default function App() {
     if (updated.id === empresa.id) {
       setEmpresa(updated);
     }
-    if (userProfile && isOnline) {
-      await saveEmpresaConfigCloud(updated);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveEmpresaConfigCloud(updated);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: updated.id,
+            type: 'saveEmpresa',
+            empresa: updated,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: updated.id,
+          type: 'saveEmpresa',
+          empresa: updated,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify('Configuración de empresa guardada', 'success');
   };
@@ -710,39 +962,93 @@ export default function App() {
 
   const handleSaveBanner = async (banner: StoreBanner) => {
     const exists = banners.some((b) => b.id === banner.id);
-    if (dataSource !== 'firebase') {
-      const next = exists
-        ? banners.map((b) => (b.id === banner.id ? banner : b))
-        : [banner, ...banners];
-      setBanners(next);
-      localStore.saveBanners(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveBannerCloud(empresa.id, banner);
+    const next = exists
+      ? banners.map((b) => (b.id === banner.id ? banner : b))
+      : [banner, ...banners];
+    setBanners(next);
+    localStore.saveBanners(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveBannerCloud(empresa.id, banner);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveBanner',
+            banner,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveBanner',
+          banner,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify(exists ? 'Banner actualizado' : 'Banner publicado en tienda', 'success');
   };
 
   const handleDeleteBanner = async (bannerId: string) => {
-    if (dataSource !== 'firebase') {
-      const next = banners.filter((b) => b.id !== bannerId);
-      setBanners(next);
-      localStore.saveBanners(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await deleteBannerCloud(empresa.id, bannerId);
+    const next = banners.filter((b) => b.id !== bannerId);
+    setBanners(next);
+    localStore.saveBanners(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await deleteBannerCloud(empresa.id, bannerId);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'deleteBanner',
+            bannerId,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'deleteBanner',
+          bannerId,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     notify('Banner eliminado', 'info');
   };
 
   const handleCreateTicket = async (ticket: SupportTicket) => {
-    if (dataSource !== 'firebase') {
-      const next = [ticket, ...tickets];
-      setTickets(next);
-      localStore.saveTickets(next, empresa.id);
-    }
-    if (userProfile && isOnline) {
-      await saveTicketCloud(ticket);
+    const next = [ticket, ...tickets];
+    setTickets(next);
+    localStore.saveTickets(next, empresa.id);
+    if (userProfile) {
+      if (isOnline) {
+        try {
+          await saveTicketCloud(ticket);
+        } catch {
+          const queue = localStore.enqueueOfflineOp({
+            id: genId('OP'),
+            empresaId: empresa.id,
+            type: 'saveTicket',
+            ticket,
+          });
+          setPendingSyncCount(queue.length);
+        }
+      } else {
+        const queue = localStore.enqueueOfflineOp({
+          id: genId('OP'),
+          empresaId: empresa.id,
+          type: 'saveTicket',
+          ticket,
+        });
+        setPendingSyncCount(queue.length);
+      }
     }
     appendEmailLog({
       para: 'soporteyabi@gmail.com',
@@ -892,11 +1198,8 @@ export default function App() {
               />
             </div>
             <p className="mt-1 text-[10px] text-slate-400 truncate">
-              {dataSource === 'firebase'
-                ? activeBackend === 'supabase'
-                  ? 'Supabase Live'
-                  : 'Firebase Live'
-                : 'Caja Local'}
+              {dataSource === 'cloud' ? 'Supabase Live' : 'Caché Offline / Local'}
+              {pendingSyncCount > 0 ? ` · ${pendingSyncCount} pend.` : ''}
               {canSwitchEmpresas && empresas.length > 1 ? ` · ${empresas.length} empresas` : ''}
             </p>
           </button>
@@ -1015,7 +1318,7 @@ export default function App() {
               className="w-full min-h-[38px] px-3 rounded-xl border border-slate-200 dark:border-[#0D1E35] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#0B1525] flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5 text-[#00C8FF]" />
-              {activeBackend === 'supabase' ? 'Conectar Supabase' : 'Conectar Firebase'}
+              Conectar Supabase
             </button>
           )}
         </div>
@@ -1058,7 +1361,7 @@ export default function App() {
             {!isOnline && (
               <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-amber-500 font-medium px-2">
                 <WifiOff className="w-3.5 h-3.5" />
-                Offline
+                Offline{pendingSyncCount > 0 ? ` (${pendingSyncCount})` : ''}
               </span>
             )}
 
@@ -1161,7 +1464,7 @@ export default function App() {
                   activeSales={sales}
                   employees={employees}
                   userProfile={userProfile}
-                  isCloudConnected={dataSource === 'firebase'}
+                  isCloudConnected={dataSource === 'cloud'}
                   onSwitchEmpresa={handleSwitchEmpresa}
                   onSaveEmpresa={handleSaveEmpresa}
                   onNavigateTab={(tab) => setActiveTab(tab)}
@@ -1174,7 +1477,7 @@ export default function App() {
                   activeEmpresaNombre={empresa.nombre}
                   isSuperAdmin={!userProfile || userProfile.rol === 'superadmin'}
                   currentUserUid={userProfile?.uid}
-                  isCloudConnected={dataSource === 'firebase'}
+                  isCloudConnected={dataSource === 'cloud'}
                   onCreateEmployee={handleCreateEmployee}
                   onDeleteEmployee={handleDeleteEmployee}
                 />
@@ -1191,7 +1494,7 @@ export default function App() {
               {activeTab === 'inventory' && (
                 <InventoryView
                   empresaId={empresa.id}
-                  isCloudConnected={dataSource === 'firebase'}
+                  isCloudConnected={dataSource === 'cloud'}
                   products={products}
                   onSaveProduct={handleSaveProduct}
                   onDeleteProduct={handleDeleteProduct}
@@ -1202,7 +1505,7 @@ export default function App() {
               {activeTab === 'banners' && (
                 <BannersView
                   empresaId={empresa.id}
-                  isCloudConnected={dataSource === 'firebase'}
+                  isCloudConnected={dataSource === 'cloud'}
                   banners={banners}
                   onSaveBanner={handleSaveBanner}
                   onDeleteBanner={handleDeleteBanner}
@@ -1410,7 +1713,7 @@ export default function App() {
                 className="w-full min-h-[46px] rounded-xl bg-sky-600 dark:bg-[#00C8FF] text-white dark:text-[#050A14] text-sm font-semibold flex items-center justify-center gap-2"
               >
                 <LogIn className="w-4 h-4" />
-                Conectar cuenta Firebase
+                Conectar cuenta Supabase
               </button>
             )}
           </div>

@@ -11,7 +11,7 @@ import {
   Smartphone,
   Sun,
 } from 'lucide-react';
-import {activeBackend} from '../services/yabiDb';
+import {isSupabaseConfigured} from '../services/yabiDb';
 import {renderApiUrl} from '../services/supabaseClient';
 import {buildFullSupabaseSql} from '../utils/supabaseSqlExport';
 import type {
@@ -32,7 +32,7 @@ interface MobileNativeHubViewProps {
   empresa: EmpresaConfig;
   empresas?: EmpresaConfig[];
   userProfile: UserProfile | null;
-  dataSource: 'firebase' | 'local';
+  dataSource: 'cloud' | 'local';
   products: Product[];
   customers: Customer[];
   suppliers: Supplier[];
@@ -74,31 +74,6 @@ export const supabaseRn = isRnSupabaseConfigured
       },
     })
   : null;`,
-  },
-  {
-    id: 'firebase',
-    title: 'Respaldo Firebase Nativa (onSnapshot + AsyncStorage)',
-    path: 'react-native-app/src/config/firebase.ts',
-    code: `import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-export const firebaseConfig = {
-  apiKey: "AIzaSyBN43iwLvZeMK8Mqc-9Cgvgit--sfys2NY",
-  authDomain: "yabi-store.firebaseapp.com",
-  databaseURL: "https://yabi-store-default-rtdb.firebaseio.com",
-  projectId: "yabi-store",
-  storageBucket: "yabi-store.firebasestorage.app",
-  messagingSenderId: "944408167941",
-  appId: "1:944408167941:web:f6b381be1eab30ef6c3e6c",
-};
-
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
-export const db = getFirestore(app);`,
   },
 ];
 
@@ -224,12 +199,10 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
       <div className="bg-white/65 dark:bg-[#0B1525]/45 border border-slate-200/80 dark:border-[#0D1E35] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-            Motor: {activeBackend === 'supabase' ? 'Supabase Postgres + Realtime' : 'Firebase yabi-store'} · Empresa: {empresa.id} · Estado:{' '}
-            {dataSource === 'firebase'
-              ? activeBackend === 'supabase'
-                ? 'Conectado a Supabase Realtime'
-                : 'Tiempo real onSnapshot'
-              : 'Almacenamiento Local (Sin sesión)'}
+            Motor: Supabase Postgres + Realtime + Render · Empresa: {empresa.id} · Estado:{' '}
+            {dataSource === 'cloud'
+              ? 'Conectado a Supabase Realtime'
+              : 'Almacenamiento Local + Caché Offline'}
           </p>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             {userProfile ? userProfile.nombre : empresa.nombre}
@@ -237,7 +210,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {userProfile
               ? `${userProfile.email} · Rol ${userProfile.rol}`
-              : 'Operando en almacenamiento local del dispositivo. Inicia sesión con tu cuenta de YA’BI Store para sincronizar en la nube.'}
+              : 'Operando en almacenamiento local del dispositivo. Inicia sesión con tu cuenta de YA’BI Store para sincronizar con Supabase.'}
           </p>
         </div>
 
@@ -278,12 +251,12 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
                 </h3>
                 <span
                   className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
-                    activeBackend === 'supabase'
+                    isSupabaseConfigured
                       ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
                       : 'bg-[#00C8FF]/15 text-[#00C8FF] border border-[#00C8FF]/30'
                   }`}
                 >
-                  {activeBackend === 'supabase'
+                  {isSupabaseConfigured
                     ? 'Supabase activo'
                     : 'Listo para activar con VITE_SUPABASE_URL'}
                 </span>
@@ -519,7 +492,7 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
               Proyecto nativo React Native (Expo) sincronizado en tiempo real
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Código fuente completo en <span className="font-mono">/react-native-app</span> compatible con <strong>Supabase Realtime</strong> (<span className="font-mono">EXPO_PUBLIC_SUPABASE_URL</span>) y respaldo Firebase: POS con escáner de cámara, Ventas/Guías, Inventario, Compras atómicas, Clientes/Proveedores, Banners, Reportes omnicanal y Soporte.
+              Código fuente completo en <span className="font-mono">/react-native-app</span> conectado 100% con <strong>Supabase Realtime + Render</strong> (<span className="font-mono">EXPO_PUBLIC_SUPABASE_URL</span>) y caché offline en AsyncStorage: POS con escáner de cámara, Ventas/Guías, Inventario, Compras atómicas, Clientes/Proveedores, Banners, Reportes omnicanal y Soporte.
             </p>
           </div>
         </div>

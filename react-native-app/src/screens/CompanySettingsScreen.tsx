@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {Building2, Check} from 'lucide-react-native';
-import {rnActiveBackend, saveEmpresaConfig, type RnEmpresa} from '../services/yabiDb';
+import {saveEmpresaConfig, type RnEmpresa} from '../services/yabiDb';
 
 interface CompanySettingsScreenProps {
   empresa: RnEmpresa;
@@ -86,10 +86,7 @@ export const CompanySettingsScreen: React.FC<CompanySettingsScreenProps> = ({
         <Building2 color="#00C8FF" size={22} />
         <View style={{flex: 1}}>
           <Text style={styles.headerTitle}>Datos fiscales y empresa</Text>
-          <Text style={styles.headerSub}>
-            Empresa {empresa.id} ·{' '}
-            {rnActiveBackend === 'supabase' ? 'Sincronizado con Supabase' : 'Sincronizado con Firebase'}
-          </Text>
+          <Text style={styles.headerSub}>Empresa {empresa.id} · Sincronizado con Supabase</Text>
         </View>
       </View>
 

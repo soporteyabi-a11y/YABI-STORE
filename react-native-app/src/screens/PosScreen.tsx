@@ -165,7 +165,7 @@ export const PosScreen: React.FC<PosScreenProps> = ({
         id: i.product.id,
         stock: Math.max(0, i.product.stock - i.qty),
       }));
-      await commitSale(empresaId, sale, stockUpdates);
+      const result = await commitSale(empresaId, sale, stockUpdates);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const paidCash = paymentMethod === 'Efectivo' && cashReceived > 0 ? cashReceived : undefined;
       setCart([]);
@@ -175,7 +175,14 @@ export const PosScreen: React.FC<PosScreenProps> = ({
       setScanHint('');
       setCheckoutOpen(false);
       setReceiptSale({sale, cashReceived: paidCash});
-      await onRefresh();
+      if (result.queuedOffline) {
+        Alert.alert(
+          'Venta guardada offline',
+          'Sin conexión a internet. La venta quedó en cola local y se subirá automáticamente a Supabase al reconectar.'
+        );
+      } else {
+        await onRefresh();
+      }
     } catch (err) {
       Alert.alert(
         'Error al registrar venta',

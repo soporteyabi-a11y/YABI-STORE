@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 import {KeyRound, LogIn, X} from 'lucide-react';
-import {activeBackend, yabiAuth} from '../services/yabiDb';
+import {isSupabaseConfigured, yabiAuth} from '../services/yabiDb';
 
 interface AuthModalProps {
   open: boolean;
@@ -17,10 +17,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({open, onClose, onSuccess, o
 
   if (!open) return null;
 
-  const backendLabel = activeBackend === 'supabase' ? 'Supabase + Render' : 'Firebase (yabi-store)';
+  const backendLabel = 'Supabase + Render';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSupabaseConfigured) {
+      setError('Configura VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY para iniciar sesión en la nube.');
+      return;
+    }
     if (!email.trim() || !password) {
       setError('Ingresa tu correo y contraseña de YA’BI Store.');
       return;
@@ -33,18 +37,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({open, onClose, onSuccess, o
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      const code = (err as {code?: string})?.code || '';
       const msg = (err as {message?: string})?.message || '';
-      if (
-        code === 'auth/invalid-credential' ||
-        code === 'auth/wrong-password' ||
-        msg.toLowerCase().includes('invalid login credentials')
-      ) {
+      if (msg.toLowerCase().includes('invalid login credentials')) {
         setError('Credenciales incorrectas. Verifica tu correo o contraseña.');
-      } else if (code === 'auth/user-not-found') {
-        setError('No existe una cuenta registrada con este correo.');
       } else {
-        setError(`No se pudo iniciar sesión en ${backendLabel}. Verifica tu conexión.`);
+        setError(msg || `No se pudo iniciar sesión en ${backendLabel}. Verifica tu conexión.`);
       }
     } finally {
       setLoading(false);
