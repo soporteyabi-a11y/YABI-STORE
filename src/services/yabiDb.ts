@@ -133,6 +133,25 @@ export const yabiAuth = {
     assertSupabaseConfigured();
     return supabaseAuth.registerOwner(payload);
   },
+  registerSubscriber: async (payload: {
+    email: string;
+    password: string;
+    nombreAdmin: string;
+    nombreTienda: string;
+    plan: NonNullable<EmpresaConfig['plan']>;
+    nit?: string;
+    direccion?: string;
+    ciudad?: string;
+    telefono?: string;
+    iva?: number;
+  }) => {
+    assertSupabaseConfigured();
+    return supabaseAuth.registerSubscriber(payload);
+  },
+  resendConfirmation: async (email: string) => {
+    assertSupabaseConfigured();
+    await supabaseAuth.resendConfirmation(email);
+  },
   logout: async () => {
     if (!isSupabaseConfigured) return;
     await supabaseAuth.logout();
@@ -146,6 +165,7 @@ export const yabiAuth = {
 export async function loadUserContext(uid: string): Promise<{
   profile: UserProfile | null;
   empresa: EmpresaConfig;
+  setupWarning?: string;
 }> {
   if (!isSupabaseConfigured) {
     return {profile: null, empresa: localStore.getEmpresa()};

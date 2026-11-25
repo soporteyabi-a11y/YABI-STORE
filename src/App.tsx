@@ -193,6 +193,17 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const queryParams = new URLSearchParams(window.location.search);
+      const authErr =
+        hashParams.get('error_description') || queryParams.get('error_description');
+      if (authErr) {
+        notify(`Error de confirmación en Supabase: ${authErr}`, 'error');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     let unsubEmpresas: (() => void) | null = null;
     let unsubAuth: (() => void) | null = null;
 
@@ -206,6 +217,9 @@ export default function App() {
           setLoading(true);
           try {
             const ctx = await loadUserContext(fbUser.uid);
+            if (ctx.setupWarning) {
+              notify(ctx.setupWarning, 'error');
+            }
             const resolvedProfile: UserProfile = ctx.profile || {
               uid: fbUser.uid,
               nombre: fbUser.displayName || fbUser.email || 'Usuario YA’BI',
@@ -260,7 +274,7 @@ export default function App() {
       if (unsubAuth) unsubAuth();
       if (unsubEmpresas) unsubEmpresas();
     };
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     let disposed = false;

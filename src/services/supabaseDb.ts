@@ -204,10 +204,15 @@ export const supabaseAuth = {
     iva?: number;
   }): Promise<{needsEmailConfirmation: boolean}> => {
     const sb = getClient();
+    const redirectOrigin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : undefined;
     const {data, error} = await sb.auth.signUp({
       email: payload.email.trim(),
       password: payload.password,
       options: {
+        emailRedirectTo: redirectOrigin,
         data: {
           nombre: payload.nombreDueno.trim(),
           owner_bootstrap: true,
@@ -237,13 +242,86 @@ export const supabaseAuth = {
     if (rpcErr) throw rpcErr;
     return {needsEmailConfirmation: false};
   },
+  registerSubscriber: async (payload: {
+    email: string;
+    password: string;
+    nombreAdmin: string;
+    nombreTienda: string;
+    plan: NonNullable<EmpresaConfig['plan']>;
+    nit?: string;
+    direccion?: string;
+    ciudad?: string;
+    telefono?: string;
+    iva?: number;
+  }): Promise<{needsEmailConfirmation: boolean; empresaId?: string}> => {
+    const sb = getClient();
+    const redirectOrigin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : undefined;
+    const {data, error} = await sb.auth.signUp({
+      email: payload.email.trim(),
+      password: payload.password,
+      options: {
+        emailRedirectTo: redirectOrigin,
+        data: {
+          nombre: payload.nombreAdmin.trim(),
+          subscriber_bootstrap: true,
+          nombre_tienda: payload.nombreTienda.trim(),
+          plan: payload.plan || 'Pro',
+          nit: payload.nit?.trim() || '',
+          direccion: payload.direccion?.trim() || '',
+          ciudad: payload.ciudad?.trim() || '',
+          telefono: payload.telefono?.trim() || '',
+          iva: Number(payload.iva ?? 0),
+        },
+      },
+    });
+    if (error) throw error;
+    if (!data.session) {
+      return {needsEmailConfirmation: true};
+    }
+    const {data: empId, error: rpcErr} = await sb.rpc('registrar_suscriptor_yabi', {
+      p_nombre_tienda: payload.nombreTienda.trim(),
+      p_nombre_admin: payload.nombreAdmin.trim() || 'Administrador',
+      p_plan: payload.plan || 'Pro',
+      p_nit: payload.nit?.trim() || null,
+      p_direccion: payload.direccion?.trim() || null,
+      p_ciudad: payload.ciudad?.trim() || null,
+      p_telefono: payload.telefono?.trim() || null,
+      p_iva: Number(payload.iva ?? 0),
+    });
+    if (rpcErr) throw rpcErr;
+    return {needsEmailConfirmation: false, empresaId: empId ? String(empId) : undefined};
+  },
+  resendConfirmation: async (email: string) => {
+    const sb = getClient();
+    const redirectOrigin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : undefined;
+    const {error} = await sb.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: redirectOrigin,
+      },
+    });
+    if (error) throw error;
+  },
   logout: async () => {
     const sb = getClient();
     await sb.auth.signOut();
   },
   resetPassword: async (email: string) => {
     const sb = getClient();
-    const {error} = await sb.auth.resetPasswordForEmail(email.trim());
+    const redirectOrigin =
+      typeof window !== 'undefined' && window.location?.origin
+        ? window.location.origin
+        : undefined;
+    const {error} = await sb.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: redirectOrigin,
+    });
     if (error) throw error;
   },
 };
@@ -251,13 +329,21 @@ export const supabaseAuth = {
 export async function loadUserContextSupabase(uid: string): Promise<{
   profile: UserProfile | null;
   empresa: EmpresaConfig;
+  setupWarning?: string;
 }> {
   const sb = getClient();
-  let {data: userRow} = await sb
+  let setupWarning: string | undefined;
+
+  let {data: userRow, error: userErr} = await sb
     .from('usuarios')
     .select('*')
     .eq('uid', uid)
     .maybeSingle();
+
+  if (userErr) {
+    setupWarning =
+      'No se pudo leer la tabla usuarios en Supabase. Verifica que hayas ejecutado el SQL completo en Configuración → Copiar SQL.';
+  }
 
   if (!userRow) {
     const {data: authData} = await sb.auth.getUser();
@@ -273,7 +359,30 @@ export async function loadUserContextSupabase(uid: string): Promise<{
         p_telefono: meta.telefono ? String(meta.telefono) : null,
         p_iva: Number(meta.iva ?? 0),
       });
-      if (!rpcErr) {
+      if (rpcErr) {
+        setupWarning = rpcErr.message.includes('registrar_dueno_yabi')
+          ? 'Falta ejecutar el SQL actualizado en Supabase (Configuración → Copiar SQL) para activar DIGITAL YA’BI con Plan Oro ($0).'
+          : `No se pudo completar el registro de propietario: ${rpcErr.message}`;
+      } else {
+        const retry = await sb.from('usuarios').select('*').eq('uid', uid).maybeSingle();
+        userRow = retry.data;
+      }
+    } else if (meta?.subscriber_bootstrap) {
+      const {error: rpcErr} = await sb.rpc('registrar_suscriptor_yabi', {
+        p_nombre_tienda: String(meta.nombre_tienda || 'Nueva Tienda'),
+        p_nombre_admin: String(meta.nombre || 'Administrador'),
+        p_plan: String(meta.plan || 'Pro'),
+        p_nit: meta.nit ? String(meta.nit) : null,
+        p_direccion: meta.direccion ? String(meta.direccion) : null,
+        p_ciudad: meta.ciudad ? String(meta.ciudad) : null,
+        p_telefono: meta.telefono ? String(meta.telefono) : null,
+        p_iva: Number(meta.iva ?? 0),
+      });
+      if (rpcErr) {
+        setupWarning = rpcErr.message.includes('registrar_suscriptor_yabi')
+          ? 'Falta ejecutar el SQL actualizado en Supabase (Configuración → Copiar SQL) para activar suscripciones multi-empresa.'
+          : `No se pudo activar tu tienda suscriptora: ${rpcErr.message}`;
+      } else {
         const retry = await sb.from('usuarios').select('*').eq('uid', uid).maybeSingle();
         userRow = retry.data;
       }
@@ -293,7 +402,7 @@ export async function loadUserContextSupabase(uid: string): Promise<{
     .maybeSingle();
 
   const empresa = empRow ? mapEmpresa(empRow) : {...DEMO_EMPRESA, id: empresaId};
-  return {profile, empresa};
+  return {profile, empresa, setupWarning};
 }
 
 export function subscribeEmpresasListSupabase(

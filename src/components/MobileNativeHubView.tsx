@@ -315,6 +315,29 @@ export const MobileNativeHubView: React.FC<MobileNativeHubViewProps> = ({
             </p>
           </div>
         </div>
+
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-300">
+                Evita errores de <span className="font-mono">localhost</span> en suscripciones y registros
+              </p>
+              <p className="text-amber-700/90 dark:text-amber-200/85 mt-0.5">
+                En <strong>Supabase → Authentication → URL Configuration</strong> reemplaza <span className="font-mono">http://localhost:3000</span> en <strong>Site URL</strong> por la URL de tu app y agrega en <strong>Redirect URLs</strong> tanto tu URL actual como tu dominio en Render (<span className="font-mono">https://*.onrender.com/**</span>), o desactiva <em>Confirm email</em> en <strong>Providers → Email</strong>.
+              </p>
+            </div>
+            {typeof window !== 'undefined' && window.location?.origin && (
+              <button
+                type="button"
+                onClick={() => handleCopy('site-url', `${window.location.origin}/**`)}
+                className="min-h-[38px] px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-900 dark:text-amber-200 font-semibold inline-flex items-center gap-1.5 shrink-0"
+              >
+                {copiedId === 'site-url' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedId === 'site-url' ? 'Redirect URL copiada' : 'Copiar Redirect URL'}
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Company Settings */}

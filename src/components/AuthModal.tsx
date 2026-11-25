@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Crown, KeyRound, LogIn, UserPlus, X} from 'lucide-react';
+import {Check, Copy, Crown, KeyRound, LogIn, Mail, UserPlus, X} from 'lucide-react';
 import {isSupabaseConfigured, yabiAuth} from '../services/yabiDb';
 import type {EmpresaConfig} from '../types/yabi';
 
@@ -21,34 +21,79 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onNotify,
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [registerKind, setRegisterKind] = useState<'owner' | 'subscriber'>('owner');
+  const [selectedPlan, setSelectedPlan] = useState<NonNullable<EmpresaConfig['plan']>>('Pro');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [storeName, setStoreName] = useState(defaultEmpresa?.nombre || "DIGITAL YA'BI");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [needsConfirmHelp, setNeedsConfirmHelp] = useState(false);
   const [error, setError] = useState('');
   const [infoMsg, setInfoMsg] = useState('');
 
+  const currentOrigin =
+    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+
   useEffect(() => {
     if (open) {
-      setStoreName(defaultEmpresa?.nombre || "DIGITAL YA'BI");
+      setStoreName(
+        registerKind === 'owner' ? defaultEmpresa?.nombre || "DIGITAL YA'BI" : ''
+      );
       setError('');
       setInfoMsg('');
+      setNeedsConfirmHelp(false);
     }
-  }, [open, defaultEmpresa]);
+  }, [open, defaultEmpresa, registerKind]);
 
   if (!open) return null;
 
   const backendLabel = 'Supabase + Render';
 
+  const handleCopyOrigin = async () => {
+    if (!currentOrigin) return;
+    try {
+      await navigator.clipboard.writeText(currentOrigin);
+      setCopiedUrl(true);
+      onNotify('URL de la app copiada para Supabase', 'success');
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch {
+      onNotify('Copia la URL manualmente desde la barra', 'info');
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('Escribe tu correo primero para reenviar el enlace de confirmación.');
+      return;
+    }
+    setResending(true);
+    setError('');
+    try {
+      await yabiAuth.resendConfirmation(email);
+      setInfoMsg(
+        'Nuevo correo de confirmación enviado. Si al abrirlo te envía a localhost, recuerda pegar la URL de esta app en Supabase → Authentication → URL Configuration.'
+      );
+      onNotify('Correo de confirmación reenviado', 'success');
+    } catch (err: unknown) {
+      const msg = (err as {message?: string})?.message || '';
+      setError(msg || 'No se pudo reenviar el correo. Espera unos segundos e intenta de nuevo.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setInfoMsg('');
+    setNeedsConfirmHelp(false);
 
     if (mode === 'register') {
       if (!storeName.trim() || !ownerName.trim() || !email.trim() || password.length < 6) {
-        setError('Completa tienda, nombre de dueño, correo y una contraseña de al menos 6 caracteres.');
+        setError('Completa tienda, nombre completo, correo y una contraseña de al menos 6 caracteres.');
         return;
       }
       setLoading(true);
@@ -58,42 +103,72 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             await onSaveLocalEmpresa({
               ...defaultEmpresa,
               nombre: storeName.trim(),
-              plan: 'Oro',
+              plan: registerKind === 'owner' ? 'Oro' : selectedPlan,
               activa: true,
             });
           }
           onNotify(
-            `${storeName.trim()} activada en Plan Oro ($0) localmente. Agrega VITE_SUPABASE_URL para sincronizar en la nube.`,
+            `${storeName.trim()} activada localmente en Plan ${
+              registerKind === 'owner' ? 'Oro ($0)' : selectedPlan
+            }. Agrega VITE_SUPABASE_URL para sincronizar en la nube.`,
             'info'
           );
           onClose();
           return;
         }
-        const res = await yabiAuth.registerOwner({
-          email: email.trim(),
-          password,
-          nombreDueno: ownerName.trim(),
-          nombreTienda: storeName.trim(),
-          nit: defaultEmpresa?.nit,
-          direccion: defaultEmpresa?.direccion,
-          ciudad: defaultEmpresa?.ciudad,
-          telefono: defaultEmpresa?.telefono,
-          iva: defaultEmpresa?.iva ?? 0,
-        });
+        const res =
+          registerKind === 'owner'
+            ? await yabiAuth.registerOwner({
+                email: email.trim(),
+                password,
+                nombreDueno: ownerName.trim(),
+                nombreTienda: storeName.trim(),
+                nit: defaultEmpresa?.nit,
+                direccion: defaultEmpresa?.direccion,
+                ciudad: defaultEmpresa?.ciudad,
+                telefono: defaultEmpresa?.telefono,
+                iva: defaultEmpresa?.iva ?? 0,
+              })
+            : await yabiAuth.registerSubscriber({
+                email: email.trim(),
+                password,
+                nombreAdmin: ownerName.trim(),
+                nombreTienda: storeName.trim(),
+                plan: selectedPlan,
+              });
         if (res.needsEmailConfirmation) {
+          setNeedsConfirmHelp(true);
           setInfoMsg(
-            'Cuenta creada. Revisa tu correo para confirmar el enlace y luego inicia sesión aquí para activar DIGITAL YA’BI con Plan Oro ($0).'
+            `Cuenta creada para ${storeName.trim()}. Revisa tu correo y confirma el enlace (recuerda tener la URL de tu app en Supabase → URL Configuration) y luego inicia sesión.`
           );
           setMode('login');
-          onNotify('Revisa tu correo para confirmar la cuenta de propietario', 'info');
+          onNotify('Revisa tu correo para confirmar tu cuenta', 'info');
         } else {
-          onNotify(`${storeName.trim()} registrada como Propietario con Plan Oro ($0)`, 'success');
+          onNotify(
+            registerKind === 'owner'
+              ? `${storeName.trim()} registrada como Propietario con Plan Oro ($0)`
+              : `${storeName.trim()} activada en Plan ${selectedPlan}`,
+            'success'
+          );
           onSuccess();
           onClose();
         }
       } catch (err: unknown) {
         const msg = (err as {message?: string})?.message || '';
-        setError(msg || 'No fue posible registrar la cuenta de propietario en Supabase.');
+        const lower = msg.toLowerCase();
+        if (lower.includes('already registered') || lower.includes('user already')) {
+          setError('Este correo ya está registrado. Cambia a "Iniciar sesión" e ingresa con tu contraseña.');
+          setMode('login');
+        } else if (lower.includes('ya existe un propietario')) {
+          setError(
+            'El dueño principal ya está registrado. Cambia arriba a "Suscripción (Nueva tienda)" para crear un cliente nuevo.'
+          );
+          setRegisterKind('subscriber');
+        } else if (lower.includes('rate limit') || lower.includes('security purposes')) {
+          setError('Demasiados intentos seguidos en Supabase. Espera 60 segundos e intenta de nuevo.');
+        } else {
+          setError(msg || 'No fue posible completar el registro en Supabase.');
+        }
       } finally {
         setLoading(false);
       }
@@ -116,7 +191,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClose();
     } catch (err: unknown) {
       const msg = (err as {message?: string})?.message || '';
-      if (msg.toLowerCase().includes('invalid login credentials')) {
+      const lower = msg.toLowerCase();
+      if (lower.includes('email not confirmed')) {
+        setNeedsConfirmHelp(true);
+        setError(
+          'Tu correo aún no aparece confirmado en Supabase. Confirma el último enlace que llegó a tu correo (o desactiva "Confirm email" en Supabase) y vuelve a intentar.'
+        );
+      } else if (lower.includes('invalid login credentials')) {
         setError('Credenciales incorrectas. Verifica tu correo o contraseña.');
       } else {
         setError(msg || `No se pudo iniciar sesión en ${backendLabel}. Verifica tu conexión.`);
@@ -144,7 +225,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/65 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full sm:max-w-md bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden">
+      <div className="w-full sm:max-w-md bg-white dark:bg-[#0B1525] border border-slate-200 dark:border-[#0D1E35] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#0D1E35]">
           <div>
             <h3 className="text-base font-semibold text-slate-900 dark:text-white">
@@ -192,15 +273,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   : 'text-slate-500 dark:text-slate-400'
               }`}
             >
-              Registrar Dueño (Gratis)
+              Crear cuenta / Tienda
             </button>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-3.5">
           {error && (
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-600 dark:text-red-400">
-              {error}
+            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/25 text-xs text-red-600 dark:text-red-400 space-y-2">
+              <p>{error}</p>
             </div>
           )}
           {infoMsg && (
@@ -209,14 +290,93 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
+          {needsConfirmHelp && (
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-800 dark:text-amber-300 space-y-2">
+              <p className="font-semibold">
+                ¿El correo te mandó a <span className="font-mono">localhost</span> o sigue pidiendo confirmar?
+              </p>
+              <p>
+                En Supabase → <strong>Authentication → URL Configuration</strong> cambia <strong>Site URL</strong> a tu URL real (y agrégala en <strong>Redirect URLs</strong>), o en <strong>Providers → Email</strong> desactiva <em>Confirm email</em>:
+              </p>
+              {currentOrigin && (
+                <div className="flex items-center gap-1.5 bg-slate-900/80 text-slate-100 rounded-lg px-2.5 py-1.5">
+                  <span className="font-mono text-[10px] truncate flex-1">{currentOrigin}</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyOrigin}
+                    className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded bg-sky-600 text-white text-[10px] font-semibold"
+                  >
+                    {copiedUrl ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {copiedUrl ? 'Copiada' : 'Copiar'}
+                  </button>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resending}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-sky-700 dark:text-[#00C8FF] hover:underline disabled:opacity-50"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                {resending ? 'Reenviando correo…' : 'Reenviar correo de confirmación'}
+              </button>
+            </div>
+          )}
+
           {mode === 'register' && (
             <>
-              <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/25 flex items-center gap-2.5 text-xs text-sky-700 dark:text-[#00C8FF]">
-                <Crown className="w-4 h-4 shrink-0" />
-                <span>
-                  Cuenta <strong>Propietario (superadmin)</strong> con <strong>Plan Oro ($0/mes)</strong> sin cobro de suscripción.
-                </span>
+              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-100/80 dark:bg-[#070E1A]/80 border border-slate-200 dark:border-[#0D1E35]">
+                <button
+                  type="button"
+                  onClick={() => setRegisterKind('owner')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-colors ${
+                    registerKind === 'owner'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Dueño (Oro $0)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRegisterKind('subscriber')}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-colors ${
+                    registerKind === 'subscriber'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Suscripción (Nueva tienda)
+                </button>
               </div>
+
+              {registerKind === 'owner' ? (
+                <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/25 flex items-center gap-2.5 text-xs text-sky-700 dark:text-[#00C8FF]">
+                  <Crown className="w-4 h-4 shrink-0" />
+                  <span>
+                    Cuenta <strong>Propietario (superadmin)</strong> con <strong>Plan Oro ($0/mes)</strong> sin cobro de suscripción.
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Plan de suscripción
+                  </label>
+                  <select
+                    value={selectedPlan}
+                    onChange={(e) =>
+                      setSelectedPlan(e.target.value as NonNullable<EmpresaConfig['plan']>)
+                    }
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <option value="Básico">Básico ($49.000/mes)</option>
+                    <option value="Plata">Plata ($89.000/mes)</option>
+                    <option value="Pro">Pro ($149.000/mes)</option>
+                    <option value="Oro">Oro ($249.000/mes)</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Nombre de tu tienda
@@ -225,13 +385,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   type="text"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
-                  placeholder="DIGITAL YA'BI"
+                  placeholder={registerKind === 'owner' ? "DIGITAL YA'BI" : 'Nombre de la tienda'}
                   className="w-full h-10 px-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Tu nombre (Dueño)
+                  {registerKind === 'owner' ? 'Tu nombre (Dueño)' : 'Nombre del administrador'}
                 </label>
                 <input
                   type="text"
@@ -300,7 +460,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {loading
                 ? 'Verificando…'
                 : mode === 'register'
-                ? 'Crear Plan Oro ($0)'
+                ? registerKind === 'owner'
+                  ? 'Crear Plan Oro ($0)'
+                  : `Activar Plan ${selectedPlan}`
                 : 'Iniciar sesión'}
             </button>
           </div>

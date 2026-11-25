@@ -314,7 +314,10 @@ BEGIN
     RAISE EXCEPTION 'Ya existe un propietario principal registrado en YA''BI Store.';
   END IF;
 
-  SELECT email INTO v_email FROM auth.users WHERE id = v_uid;
+  SELECT COALESCE(
+    (SELECT email FROM auth.users WHERE id = v_uid),
+    NULLIF(trim(COALESCE(auth.jwt() ->> 'email', '')), '')
+  ) INTO v_email;
   IF v_email IS NULL THEN
     RAISE EXCEPTION 'No se encontró el correo del usuario autenticado.';
   END IF;
@@ -351,6 +354,87 @@ BEGIN
     rol = 'superadmin';
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.registrar_dueno_yabi(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.registrar_suscriptor_yabi(
+  p_nombre_tienda TEXT,
+  p_nombre_admin TEXT,
+  p_plan TEXT DEFAULT 'Pro',
+  p_nit TEXT DEFAULT NULL,
+  p_direccion TEXT DEFAULT NULL,
+  p_ciudad TEXT DEFAULT NULL,
+  p_telefono TEXT DEFAULT NULL,
+  p_iva NUMERIC DEFAULT 0
+)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid UUID := auth.uid();
+  v_email TEXT;
+  v_existing_emp TEXT;
+  v_emp_id TEXT;
+  v_next_num INTEGER;
+  v_plan TEXT := CASE
+    WHEN p_plan IN ('Básico', 'Plata', 'Pro', 'Oro') THEN p_plan
+    ELSE 'Pro'
+  END;
+  v_tienda TEXT := NULLIF(trim(COALESCE(p_nombre_tienda, '')), '');
+  v_admin TEXT := COALESCE(NULLIF(trim(COALESCE(p_nombre_admin, '')), ''), 'Administrador');
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Debes iniciar sesión primero para registrar tu tienda.';
+  END IF;
+
+  IF v_tienda IS NULL THEN
+    RAISE EXCEPTION 'Nombre de tienda requerido.';
+  END IF;
+
+  SELECT empresa_id INTO v_existing_emp FROM public.usuarios WHERE uid = v_uid;
+  IF v_existing_emp IS NOT NULL THEN
+    RETURN v_existing_emp;
+  END IF;
+
+  SELECT COALESCE(
+    (SELECT email FROM auth.users WHERE id = v_uid),
+    NULLIF(trim(COALESCE(auth.jwt() ->> 'email', '')), '')
+  ) INTO v_email;
+  IF v_email IS NULL THEN
+    RAISE EXCEPTION 'No se encontró el correo del usuario autenticado.';
+  END IF;
+
+  SELECT COALESCE(MAX((regexp_match(id, '^EMP(\d+)$'))[1]::integer), 1) + 1
+  INTO v_next_num
+  FROM public.empresas
+  WHERE id ~ '^EMP\d+$';
+
+  v_emp_id := 'EMP' || lpad(GREATEST(2, v_next_num)::text, 3, '0');
+
+  INSERT INTO public.empresas (id, nombre, nit, direccion, ciudad, telefono, iva, plan, color, activa)
+  VALUES (
+    v_emp_id,
+    v_tienda,
+    NULLIF(trim(COALESCE(p_nit, '')), ''),
+    NULLIF(trim(COALESCE(p_direccion, '')), ''),
+    NULLIF(trim(COALESCE(p_ciudad, '')), ''),
+    NULLIF(trim(COALESCE(p_telefono, '')), ''),
+    COALESCE(p_iva, 0),
+    v_plan,
+    '#00C8FF',
+    true
+  );
+
+  INSERT INTO public.usuarios (uid, empresa_id, nombre, email, rol)
+  VALUES (v_uid, v_emp_id, v_admin, v_email, 'admin');
+
+  RETURN v_emp_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.registrar_suscriptor_yabi(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC) TO authenticated;
 
 -- ============================================================================
 -- Row Level Security (RLS) Multi-Empresa
