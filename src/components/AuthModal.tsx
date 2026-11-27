@@ -1,11 +1,13 @@
 import React, {useEffect, useState} from 'react';
-import {Check, Copy, Crown, KeyRound, LogIn, Mail, UserPlus, X} from 'lucide-react';
+import {Check, Copy, Crown, KeyRound, LogIn, LogOut, Mail, UserPlus, X} from 'lucide-react';
 import {isSupabaseConfigured, yabiAuth} from '../services/yabiDb';
-import type {EmpresaConfig} from '../types/yabi';
+import type {EmpresaConfig, UserProfile} from '../types/yabi';
 
 interface AuthModalProps {
   open: boolean;
   defaultEmpresa?: EmpresaConfig;
+  currentUser?: UserProfile | null;
+  onLogout?: () => Promise<void>;
   onSaveLocalEmpresa?: (updated: EmpresaConfig) => Promise<void>;
   onClose: () => void;
   onSuccess: () => void;
@@ -15,6 +17,8 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({
   open,
   defaultEmpresa,
+  currentUser,
+  onLogout,
   onSaveLocalEmpresa,
   onClose,
   onSuccess,
@@ -244,6 +248,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {currentUser && (
+          <div className="mx-5 mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between gap-3">
+            <div className="min-w-0 text-xs">
+              <p className="font-semibold text-emerald-700 dark:text-[#00E87C] truncate">
+                Sesión conectada: {currentUser.email || currentUser.nombre}
+              </p>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                Rol: <span className="font-mono">{currentUser.rol}</span> · Empresa {currentUser.empresaId}
+              </p>
+            </div>
+            {onLogout && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await onLogout();
+                  setError('');
+                  setInfoMsg('');
+                }}
+                className="shrink-0 min-h-[34px] px-3 rounded-lg border border-rose-500/35 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-300 text-xs font-semibold flex items-center gap-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Cerrar sesión
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="px-5 pt-4">
           <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100 dark:bg-[#070E1A] border border-slate-200 dark:border-[#0D1E35]">
